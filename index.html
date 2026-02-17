@@ -1,0 +1,1697 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Quant Pinwand MVP</title>
+  <style>
+    :root {
+      --bg: #0f1220;
+      --panel: #171b2e;
+      --panel-2: #1f2540;
+      --text: #e9ecff;
+      --muted: #a9b1d6;
+      --green: #28c76f;
+      --red: #ff5b6e;
+      --amber: #ffb020;
+      --blue: #3d8bfd;
+      --border: #2e365e;
+      --grid: rgba(130, 154, 255, 0.08);
+    }
+
+    * { box-sizing: border-box; font-family: Inter, Segoe UI, Roboto, Arial, sans-serif; }
+    body {
+      margin: 0;
+      background: radial-gradient(circle at 10% 10%, #1a2040, var(--bg) 45%);
+      color: var(--text);
+      min-height: 100vh;
+    }
+    .hidden { display: none !important; }
+    .card {
+      background: linear-gradient(180deg, var(--panel-2), var(--panel));
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.35);
+    }
+    .login-wrap { min-height: 100vh; display: grid; place-items: center; padding: 24px; }
+    .login-card { width: min(420px, 94vw); padding: 20px; }
+    h1, h2, h3 { margin: 0 0 12px; font-weight: 700; letter-spacing: 0.2px; }
+    .sub { color: var(--muted); margin-bottom: 16px; font-size: 14px; }
+    .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+    .col { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
+    label { color: var(--muted); font-size: 13px; }
+    input, select, button {
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: #101529;
+      color: var(--text);
+      padding: 10px 12px;
+      outline: none;
+    }
+    button {
+      cursor: pointer;
+      background: linear-gradient(180deg, #2f66f4, #2753c4);
+      border-color: #3568df;
+      font-weight: 600;
+    }
+    button.secondary {
+      background: #1a213f;
+      border-color: #304173;
+      color: #d2dbff;
+    }
+    button.danger-big {
+      background: linear-gradient(180deg, #ff5b6e, #d94358);
+      border-color: #ff8390;
+      color: #fff5f7;
+      font-size: 14px;
+      font-weight: 800;
+      padding: 11px 18px;
+      min-width: 176px;
+      letter-spacing: 0.2px;
+      box-shadow: 0 6px 20px rgba(255, 91, 110, 0.35);
+    }
+    .error { color: #ff9bad; min-height: 18px; font-size: 13px; margin-top: 6px; }
+    .app { padding: 14px; display: grid; gap: 14px; }
+    .toolbar {
+      padding: 12px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .toolbar .left, .toolbar .right {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .toolbar input, .toolbar select { min-width: 110px; }
+    .hint { color: var(--muted); font-size: 12px; }
+    .toolbar-row {
+      width: 100%;
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .mini-btn {
+      padding: 5px 9px;
+      font-size: 11px;
+      border-radius: 999px;
+      border: 1px solid #39508a;
+      background: #152042;
+      color: #d8e2ff;
+      cursor: pointer;
+    }
+    .alert-banner {
+      width: 100%;
+      margin-top: 8px;
+      border: 1px solid #4464ad;
+      background: rgba(27, 43, 90, 0.65);
+      border-radius: 10px;
+      padding: 7px 10px;
+      font-size: 12px;
+      color: #d8e2ff;
+    }
+
+    .board-wrap {
+      position: relative;
+      min-height: 75vh;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      overflow: auto;
+      background-image:
+        linear-gradient(var(--grid) 1px, transparent 1px),
+        linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+      background-size: 24px 24px;
+      background-color: #0d1329;
+      padding: 10px;
+    }
+
+    .board {
+      position: relative;
+      width: 100%;
+      min-height: 900px;
+    }
+
+    .module {
+      position: absolute;
+      min-width: 250px;
+      min-height: 190px;
+      padding: 10px;
+      user-select: none;
+      z-index: 1;
+      overflow: hidden;
+    }
+    .module.active { z-index: 20; box-shadow: 0 12px 40px rgba(46, 90, 255, 0.25); }
+    .module.locked { border-color: #6f85d8; }
+
+    .module-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
+      cursor: grab;
+    }
+    .module.locked .module-header { cursor: default; }
+    .chip {
+      padding: 3px 8px;
+      border-radius: 999px;
+      font-size: 11px;
+      border: 1px solid var(--border);
+      color: var(--muted);
+    }
+    .module-actions { display: flex; gap: 6px; align-items: center; }
+    .icon-btn {
+      border: 1px solid #394a80;
+      background: #171d35;
+      color: #dce3ff;
+      border-radius: 8px;
+      padding: 3px 8px;
+      font-size: 11px;
+    }
+    .metric {
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+      margin: 4px 0;
+      color: #dce3ff;
+    }
+    .metric span:first-child { color: var(--muted); }
+    .score-big { font-size: 32px; font-weight: 800; margin-top: 2px; letter-spacing: 0.5px; }
+    .status { font-weight: 700; margin-top: 6px; }
+    .bull { color: var(--green); }
+    .bear { color: var(--red); }
+    .neutral { color: var(--amber); }
+    .kpi-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+    .kpi {
+      border: 1px solid #2a345a;
+      background: #111735;
+      border-radius: 8px;
+      padding: 8px;
+      font-size: 11px;
+    }
+    .kpi strong { display: block; font-size: 13px; margin-top: 2px; }
+
+    .chart-wrap {
+      margin-top: 8px;
+      border: 1px solid #2b345b;
+      border-radius: 8px;
+      background: #0f1532;
+      padding: 6px;
+    }
+    .chart-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 6px;
+      gap: 8px;
+    }
+    .chart-title { font-size: 11px; color: var(--muted); }
+    .chart-head-actions { display: flex; align-items: center; gap: 6px; }
+    .chart-select {
+      border-radius: 7px;
+      font-size: 11px;
+      padding: 3px 6px;
+      background: #171f41;
+      border: 1px solid #334578;
+      color: #d5ddff;
+    }
+    .chart-canvas { width: 100%; height: 94px; display: block; }
+    .chart-placeholder {
+      margin-top: 8px;
+      border: 1px dashed #3f4e84;
+      border-radius: 8px;
+      padding: 10px;
+      font-size: 12px;
+      color: #a7b4e7;
+      background: rgba(18, 25, 50, 0.45);
+    }
+
+    .resize-handle {
+      position: absolute;
+      right: 4px;
+      bottom: 4px;
+      width: 14px;
+      height: 14px;
+      cursor: nwse-resize;
+      border-right: 2px solid #9cb0ff;
+      border-bottom: 2px solid #9cb0ff;
+      opacity: 0.8;
+    }
+    .module.locked .resize-handle { display: none; }
+    .drag-reset-zone {
+      position: absolute;
+      border: 1px dashed rgba(142, 167, 255, 0.7);
+      background: rgba(88, 116, 209, 0.08);
+      border-radius: 10px;
+      pointer-events: none;
+      z-index: 2;
+      transition: border-color 120ms ease, background 120ms ease;
+    }
+    .drag-reset-zone.active {
+      border-color: rgba(80, 222, 150, 0.95);
+      background: rgba(43, 187, 119, 0.14);
+    }
+    body.backdrop-active .module {
+      z-index: 0 !important;
+      opacity: 0.45;
+    }
+    body.backdrop-active .board-wrap {
+      filter: saturate(0.8) brightness(0.85);
+    }
+
+    .modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.55);
+      display: grid;
+      place-items: center;
+      padding: 14px;
+      z-index: 4000;
+    }
+    .modal .card { width: min(580px, 95vw); padding: 16px; }
+    .module-list { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+    .pill-btn {
+      border-radius: 999px;
+      background: #151d3a;
+      border: 1px solid #334271;
+      color: #dbe3ff;
+      padding: 6px 10px;
+      font-size: 12px;
+    }
+    .module-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 8px;
+      font-size: 12px;
+    }
+    .module-table th, .module-table td {
+      border-bottom: 1px solid #2e3a67;
+      padding: 8px 6px;
+      text-align: left;
+    }
+    .module-table th { color: #aebaf0; font-weight: 600; }
+    .toggle-btn {
+      min-width: 48px;
+      padding: 4px 8px;
+      border-radius: 8px;
+      font-size: 11px;
+      background: #19244a;
+      border: 1px solid #34457a;
+      color: #dbe5ff;
+      cursor: pointer;
+    }
+    .toggle-btn.on-active {
+      background: rgba(40, 199, 111, 0.2);
+      border-color: #3aa96d;
+      color: #9ff1c0;
+    }
+    .toggle-btn.off-active {
+      background: rgba(255, 91, 110, 0.2);
+      border-color: #d06474;
+      color: #ffc0c9;
+    }
+    .footer-note { color: var(--muted); font-size: 12px; margin-top: 10px; }
+
+    .overlay-modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(5, 8, 18, 0.82);
+      z-index: 5000;
+      display: grid;
+      place-items: center;
+      padding: 16px;
+    }
+    .overlay-card {
+      width: min(1180px, 96vw);
+      height: min(88vh, 860px);
+      padding: 12px;
+      display: grid;
+      gap: 10px;
+      grid-template-rows: auto 1fr;
+    }
+    .overlay-top {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .overlay-controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    .overlay-canvas-wrap {
+      border: 1px solid #35457e;
+      border-radius: 10px;
+      background: #0f1532;
+      padding: 10px;
+      min-height: 300px;
+    }
+    .overlay-canvas {
+      width: 100%;
+      height: calc(100% - 2px);
+      min-height: 300px;
+      display: block;
+    }
+  </style>
+</head>
+<body>
+  <div id="loginView" class="login-wrap">
+    <div class="card login-card">
+      <h1>Quant Pinwand MVP</h1>
+      <div class="sub">Login für Demo-Zugang</div>
+      <div class="col">
+        <label for="username">Benutzername</label>
+        <input id="username" placeholder="z. B. demo">
+      </div>
+      <div class="col">
+        <label for="password">Passwort</label>
+        <input id="password" type="password" placeholder="z. B. demo123">
+      </div>
+      <div class="row">
+        <button id="loginBtn">Anmelden</button>
+      </div>
+      <div class="error" id="loginError"></div>
+      <div class="footer-note">Standard: Benutzer <strong>demo</strong>, Passwort <strong>demo123</strong></div>
+    </div>
+  </div>
+
+  <main id="appView" class="app hidden">
+    <section class="toolbar card">
+      <div class="left">
+        <input id="tickerInput" value="AAPL" placeholder="Ticker">
+        <select id="timeframeSelect">
+          <option>1min</option><option>5min</option><option>30min</option><option>1hour</option>
+          <option>4hours</option><option selected>24hours</option><option>1week</option><option>1month</option>
+        </select>
+        <button id="refreshBtn">Aktualisieren</button>
+        <button id="autoSizeBtn" class="secondary">Intelligent Größe</button>
+      </div>
+      <div class="right">
+        <button id="saveLayoutBtn" class="secondary">Layout sichern</button>
+        <button id="undoLayoutBtn" class="secondary" title="Letzte Position wiederherstellen">← Zurück</button>
+        <button id="addModuleBtn" class="secondary">+ Modul hinzufügen</button>
+        <button id="resetLayoutBtn" class="secondary">Layout zurücksetzen</button>
+        <button id="closePositionBtn" class="danger-big">Position schließen</button>
+        <button id="logoutBtn" class="secondary">Abmelden</button>
+      </div>
+      <div class="hint">Drag per Header, Resize unten rechts, Lock fixiert Modul dauerhaft.</div>
+      <div class="toolbar-row">
+        <div class="row" id="quickTickerRow">
+          <span class="hint">Quick-Ticker:</span>
+          <button class="mini-btn" data-q-ticker="AAPL">AAPL</button>
+          <button class="mini-btn" data-q-ticker="MSFT">MSFT</button>
+          <button class="mini-btn" data-q-ticker="NVDA">NVDA</button>
+          <button class="mini-btn" data-q-ticker="TSLA">TSLA</button>
+          <button class="mini-btn" data-q-ticker="SPY">SPY</button>
+          <button class="mini-btn" data-q-ticker="QQQ">QQQ</button>
+        </div>
+        <div class="row">
+          <label for="bullAlertInput">Bull-Alert ab %</label>
+          <input id="bullAlertInput" type="number" value="70" min="1" max="99" style="width: 84px;">
+          <button id="applyAlertBtn" class="secondary">Alert setzen</button>
+        </div>
+      </div>
+      <div id="alertBanner" class="alert-banner hidden"></div>
+    </section>
+
+    <section class="board-wrap card">
+      <section id="board" class="board"></section>
+    </section>
+  </main>
+
+  <div id="moduleModal" class="modal hidden">
+    <div class="card">
+      <h3>Modul hinzufügen</h3>
+      <div class="sub">Pro Modul kannst du den Status direkt auf On oder Off setzen.</div>
+      <table class="module-table">
+        <thead>
+          <tr>
+            <th>Modul</th>
+            <th>Status On</th>
+            <th>Status Off</th>
+          </tr>
+        </thead>
+        <tbody id="moduleTableBody"></tbody>
+      </table>
+      <div class="row" style="margin-top: 12px;">
+        <button id="closeModalBtn" class="secondary">Schließen</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="chartOverlay" class="overlay-modal hidden">
+    <div class="card overlay-card">
+      <div class="overlay-top">
+        <div>
+          <strong id="overlayTitle">Chart Overlay</strong>
+          <div class="hint" id="overlaySub">Vollbildanalyse</div>
+        </div>
+        <div class="overlay-controls">
+          <button id="overlayRulerBtn" class="secondary">Lineal: Aus</button>
+          <select id="overlayModeSelect"></select>
+          <select id="overlayTfSelect"></select>
+          <button id="overlayCloseBtn" class="secondary">Schließen</button>
+        </div>
+      </div>
+      <div class="overlay-canvas-wrap">
+        <canvas id="overlayCanvas" class="overlay-canvas"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const AUTH_USER = "demo";
+    const AUTH_PASS = "demo123";
+    const STORAGE_KEY = "quant_pinwand_state_v2";
+    const GRID = 10;
+    const MIN_W = 280;
+    const MIN_H = 220;
+    const MODULE_GAP = 6;
+    const RESET_ZONE_PADDING = 35;
+
+    const GROUP_BASE_WEIGHTS = {
+      technical: 0.25, options: 0.25, flow: 0.15, fundamental: 0.10, macro: 0.10, sentiment: 0.10, event: 0.05
+    };
+
+    const TF_OPTIONS = ["1min", "5min", "30min", "1hour", "4hours", "24hours", "1week", "1month"];
+
+    const MODULE_DEFS = {
+      "market-overview": { title: "Marktstimmung", group: "technical", baseH: 310, chart: true, yLabel: "Composite Score" },
+      "top-drivers": { title: "Top 3 Score-Treiber", group: "technical", baseH: 280, chart: false },
+      "technical": { title: "Technische Struktur", group: "technical", baseH: 280, chart: true, yLabel: "Technik-Index" },
+      "options": { title: "Options & Dealer", group: "options", baseH: 310, chart: true, yLabel: "IV/Gamma Index" },
+      "darkpool": { title: "Dark Pool Levels", group: "flow", baseH: 290, chart: true, yLabel: "Dark-Pool Preislevel" },
+      "borrow": { title: "Borrow Fees / Short Interest", group: "flow", baseH: 290, chart: true, yLabel: "Borrow/Short Druck" },
+      "flow": { title: "Flow & Liquidity", group: "flow", baseH: 280, chart: true, yLabel: "Liquidity Pressure" },
+      "fundamental": { title: "Fundamental-Engine", group: "fundamental", baseH: 340, chart: true, yLabel: "Valuation-Index" },
+      "etf": { title: "ETF & Flows", group: "flow", baseH: 280, chart: true, yLabel: "ETF Flow Index" },
+      "macro": { title: "Makroökonomie", group: "macro", baseH: 270, chart: true, yLabel: "Makro Surprise Index" },
+      "sentiment": { title: "Sentiment & News", group: "sentiment", baseH: 270, chart: true, yLabel: "Sentiment-Index" },
+      "event": { title: "Event-Risiko", group: "event", baseH: 270, chart: true, yLabel: "Event Risk Index" },
+      "probabilities": { title: "Regime-Wahrscheinlichkeiten", group: "technical", baseH: 280, chart: false },
+      "divergence": { title: "Divergenz-Monitor", group: "technical", baseH: 270, chart: false }
+    };
+
+    const DEFAULT_ACTIVE = ["market-overview", "top-drivers", "technical", "options", "darkpool", "borrow", "fundamental", "probabilities"];
+
+    const MODULE_COLORS = [
+      { name: "Standard", value: "" },
+      { name: "Blau", value: "#1a2744" },
+      { name: "Grün", value: "#0f2a1a" },
+      { name: "Rot", value: "#2a1a1a" },
+      { name: "Violett", value: "#1e1a2e" },
+      { name: "Amber", value: "#2a2410" },
+      { name: "Cyan", value: "#0a2428" }
+    ];
+
+    const state = {
+      symbol: "AAPL",
+      timeframe: "24hours",
+      activeModules: [...DEFAULT_ACTIVE],
+      layouts: {},
+      layoutHistory: [],
+      moduleTf: {},
+      moduleColor: {},
+      chartViewport: {},
+      chartMode: {},
+      alertBullThreshold: 70,
+      overlay: {
+        open: false,
+        moduleId: null,
+        tf: "24hours",
+        ruler: false,
+        rulerStart: null,
+        hoverIndex: null
+      },
+      scoreModel: null,
+      zCounter: 2
+    };
+
+    const loginView = document.getElementById("loginView");
+    const appView = document.getElementById("appView");
+    const loginError = document.getElementById("loginError");
+    const board = document.getElementById("board");
+    const moduleModal = document.getElementById("moduleModal");
+    const moduleTableBody = document.getElementById("moduleTableBody");
+    const tickerInput = document.getElementById("tickerInput");
+    const timeframeSelect = document.getElementById("timeframeSelect");
+    const alertBanner = document.getElementById("alertBanner");
+    const chartOverlay = document.getElementById("chartOverlay");
+    const overlayCanvas = document.getElementById("overlayCanvas");
+    const overlayTitle = document.getElementById("overlayTitle");
+    const overlaySub = document.getElementById("overlaySub");
+    const overlayTfSelect = document.getElementById("overlayTfSelect");
+    const overlayModeSelect = document.getElementById("overlayModeSelect");
+
+    function seededRandom(seedText) {
+      let h = 2166136261;
+      for (let i = 0; i < seedText.length; i++) { h ^= seedText.charCodeAt(i); h = Math.imul(h, 16777619); }
+      return function () {
+        h += h << 13; h ^= h >>> 7; h += h << 3; h ^= h >>> 17; h += h << 5;
+        return ((h >>> 0) % 10000) / 10000;
+      };
+    }
+    const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+    const snap = (n) => Math.round(n / GRID) * GRID;
+    function timeframeFactor(tf) {
+      const m = { "1min": 1.45, "5min": 1.35, "30min": 1.2, "1hour": 1.0, "4hours": 0.85, "24hours": 0.7, "1week": 0.55, "1month": 0.42 };
+      return m[tf] || 1;
+    }
+
+    function computeModel(symbol, timeframe) {
+      const rnd = seededRandom(symbol + "_" + timeframe);
+      const tf = timeframeFactor(timeframe);
+      const quality = { technical: 0.8 + rnd() * 0.35, options: 0.8 + rnd() * 0.35, flow: 0.8 + rnd() * 0.35, fundamental: 0.8 + rnd() * 0.35, macro: 0.8 + rnd() * 0.35, sentiment: 0.8 + rnd() * 0.35, event: 0.8 + rnd() * 0.35 };
+      const groups = Object.keys(GROUP_BASE_WEIGHTS);
+      const ic = {};
+      groups.forEach((g) => ic[g] = 0.2 + rnd() * 0.8);
+      let sumRaw = 0;
+      groups.forEach((g) => sumRaw += GROUP_BASE_WEIGHTS[g] * ic[g] * quality[g]);
+      const W = {};
+      groups.forEach((g) => W[g] = (GROUP_BASE_WEIGHTS[g] * ic[g] * quality[g]) / sumRaw);
+      const G = {
+        technical: clamp((rnd() * 2 - 1) * tf * 1.2, -1.7, 1.7),
+        options: clamp((rnd() * 2 - 1) * tf * 1.5, -1.8, 1.8),
+        flow: clamp((rnd() * 2 - 1) * tf * 1.1, -1.6, 1.6),
+        fundamental: clamp((rnd() * 2 - 1) * 0.8, -1.2, 1.2),
+        macro: clamp((rnd() * 2 - 1) * 0.9, -1.2, 1.2),
+        sentiment: clamp((rnd() * 2 - 1) * tf * 1.0, -1.7, 1.7),
+        event: clamp((rnd() * 2 - 1) * 0.7, -1.3, 1.3)
+      };
+      let cs = 0;
+      groups.forEach((g) => cs += W[g] * G[g]);
+      const csNorm = 100 * Math.tanh(cs);
+      const pBull = 1 / (1 + Math.exp(-1.3 * cs));
+      const drivers = [
+        { label: "Momentum Cluster", value: W.technical * G.technical },
+        { label: "Gamma Exposure", value: W.options * G.options },
+        { label: "Liquidity Imbalance", value: W.flow * G.flow },
+        { label: "Valuation Pressure", value: W.fundamental * G.fundamental },
+        { label: "Macro Pulse", value: W.macro * G.macro },
+        { label: "Sentiment Breadth", value: W.sentiment * G.sentiment },
+        { label: "Event Risk", value: W.event * G.event }
+      ].sort((a, b) => Math.abs(b.value) - Math.abs(a.value)).slice(0, 3);
+      const probs = {
+        trend: clamp(0.35 + pBull * 0.45 + rnd() * 0.05, 0.05, 0.92),
+        meanRev: clamp(0.4 - Math.abs(cs) * 0.2 + rnd() * 0.08, 0.03, 0.65),
+        volExp: clamp(0.25 + tf * 0.22 + rnd() * 0.08, 0.05, 0.82),
+        distribution: clamp(0.2 + (1 - pBull) * 0.25 + rnd() * 0.08, 0.03, 0.72)
+      };
+      const divergences = [
+        { pair: "technical vs fundamental", strength: Math.abs(G.technical - G.fundamental) },
+        { pair: "options vs flow", strength: Math.abs(G.options - G.flow) },
+        { pair: "sentiment vs macro", strength: Math.abs(G.sentiment - G.macro) }
+      ].sort((a, b) => b.strength - a.strength);
+      const fundamentals = {
+        kgv: (12 + rnd() * 20).toFixed(2), peg: (0.7 + rnd() * 2.2).toFixed(2), kbv: (1.2 + rnd() * 6).toFixed(2),
+        roe: (6 + rnd() * 26).toFixed(2) + "%", roic: (5 + rnd() * 20).toFixed(2) + "%", fcfMargin: (4 + rnd() * 24).toFixed(2) + "%",
+        debtToEq: (0.15 + rnd() * 1.6).toFixed(2), netMargin: (5 + rnd() * 28).toFixed(2) + "%"
+      };
+      const options = {
+        gex: (rnd() > 0.5 ? "+" : "-") + (10 + rnd() * 180).toFixed(1) + "M", maxPain: (80 + rnd() * 220).toFixed(0),
+        putCall: (0.55 + rnd() * 1.1).toFixed(2), skew: (-8 + rnd() * 18).toFixed(2), ivRank: (10 + rnd() * 85).toFixed(0) + "%", odte: (20 + rnd() * 70).toFixed(0) + "%"
+      };
+      const flow = { spreadBps: (0.8 + rnd() * 11).toFixed(2), depth: (100 + rnd() * 1400).toFixed(0) + "k", imbalance: (rnd() * 2 - 1).toFixed(2), etfFlow: (rnd() > 0.5 ? "+" : "-") + (5 + rnd() * 240).toFixed(0) + "M" };
+      const darkpool = { dpRatio: (35 + rnd() * 38).toFixed(1) + "%", dpHigh: (90 + rnd() * 210).toFixed(1), dpLow: (70 + rnd() * 170).toFixed(1), venueShift: (rnd() > 0.5 ? "Risk-On" : "Risk-Off") };
+      const borrow = { fee: (0.2 + rnd() * 35).toFixed(2) + "%", utilization: (25 + rnd() * 74).toFixed(1) + "%", shortInterest: (2 + rnd() * 28).toFixed(1) + "%", daysToCover: (0.8 + rnd() * 8).toFixed(2) };
+      return { W, G, csNorm, pBull, drivers, probs, divergences, fundamentals, options, flow, darkpool, borrow };
+    }
+
+    function statusClass(v) {
+      if (v >= 20) return ["bull", "Bullish"];
+      if (v <= -20) return ["bear", "Bearish"];
+      return ["neutral", "Neutral"];
+    }
+
+    function ensureLayout(id) {
+      if (state.layouts[id]) return;
+      const baseW = 380;
+      const baseH = MODULE_DEFS[id].baseH || 280;
+      const pos = findNextFreeSlot(id, baseW, baseH, -1, -1);
+      state.layouts[id] = { x: pos.x, y: pos.y, w: baseW, h: baseH, locked: false, allowOverlap: false, z: ++state.zCounter };
+      if (!state.moduleTf[id]) state.moduleTf[id] = state.timeframe;
+      if (!state.chartViewport[id]) state.chartViewport[id] = 40;
+      if (!state.chartMode[id]) state.chartMode[id] = "candles";
+    }
+
+    function canPlaceAt(id, x, y, w, h) {
+      const rect = { x, y, w, h };
+      const thisAllow = state.layouts[id] ? !!state.layouts[id].allowOverlap : false;
+      return !state.activeModules.some((otherId) => {
+        if (otherId === id) return false;
+        const other = state.layouts[otherId];
+        if (!other) return false;
+        if (thisAllow || other.allowOverlap) return false;
+        return rectsOverlap(rect, other);
+      });
+    }
+
+    function findNextFreeSlot(id, w, h, fromX, fromY) {
+      const boardW = Math.max(board.clientWidth, 900);
+      const maxX = Math.max(10, boardW - w - 10);
+      const stepX = 20;
+      const stepY = 20;
+      let fallback = null;
+
+      for (let y = 10; y <= 5000; y += stepY) {
+        for (let x = 10; x <= maxX; x += stepX) {
+          const sx = snap(x);
+          const sy = snap(y);
+          if (!canPlaceAt(id, sx, sy, w, h)) continue;
+          if (!fallback) fallback = { x: sx, y: sy };
+          if (sy > fromY || (sy === fromY && sx > fromX)) {
+            return { x: sx, y: sy };
+          }
+        }
+      }
+      return fallback || { x: 10, y: 10 };
+    }
+
+    function findBestFreeSlotForPush(id, w, h, fromX, fromY) {
+      const boardW = Math.max(board.clientWidth, 900);
+      const maxX = Math.max(10, boardW - w - 10);
+      const stepX = 20;
+      const stepY = 20;
+      let bestAbove = null;
+      let bestAny = null;
+
+      for (let y = 10; y <= 5000; y += stepY) {
+        for (let x = 10; x <= maxX; x += stepX) {
+          const sx = snap(x);
+          const sy = snap(y);
+          if (!canPlaceAt(id, sx, sy, w, h)) continue;
+
+          const dx = Math.abs(sx - fromX);
+          const dy = Math.abs(sy - fromY);
+          const score = dx + dy * 1.2;
+          const candidate = { x: sx, y: sy, score };
+
+          if (sy < fromY) {
+            if (!bestAbove || sy < bestAbove.y || (sy === bestAbove.y && sx < bestAbove.x)) {
+              bestAbove = candidate;
+            }
+          }
+          if (!bestAny || candidate.score < bestAny.score) bestAny = candidate;
+        }
+      }
+
+      if (bestAbove) return { x: bestAbove.x, y: bestAbove.y };
+      if (bestAny) return { x: bestAny.x, y: bestAny.y };
+      return { x: fromX, y: fromY };
+    }
+
+    function findFreePosition() {
+      const slot = findNextFreeSlot("__new__", 380, 280, -1, -1);
+      return { x: slot.x, y: slot.y };
+    }
+
+    function rectsOverlap(a, b) {
+      return !(
+        a.x + a.w + MODULE_GAP <= b.x ||
+        a.x >= b.x + b.w + MODULE_GAP ||
+        a.y + a.h + MODULE_GAP <= b.y ||
+        a.y >= b.y + b.h + MODULE_GAP
+      );
+    }
+
+    function overlapEnforced(aId, bId) {
+      const a = state.layouts[aId];
+      const b = state.layouts[bId];
+      if (!a || !b) return false;
+      return !(a.allowOverlap || b.allowOverlap);
+    }
+
+    function applyLayoutToDom(id) {
+      const l = state.layouts[id];
+      const el = board.querySelector(`.module[data-module-id="${id}"]`);
+      if (!l || !el) return;
+      el.style.left = l.x + "px";
+      el.style.top = l.y + "px";
+      el.style.width = l.w + "px";
+      el.style.height = l.h + "px";
+    }
+
+    function pushModuleAway(sourceId, targetId) {
+      const s = state.layouts[sourceId];
+      const t = state.layouts[targetId];
+      if (!s || !t) return false;
+      if (t.locked) return false;
+      if (!rectsOverlap(s, t)) return false;
+      const next = findBestFreeSlotForPush(targetId, t.w, t.h, t.x, t.y);
+      t.x = next.x;
+      t.y = next.y;
+      return true;
+    }
+
+    function resolveCollisionsFrom(anchorId) {
+      const queue = [anchorId];
+      let guard = 0;
+      while (queue.length && guard < 400) {
+        guard += 1;
+        const sourceId = queue.shift();
+        const overlapping = state.activeModules
+          .filter((otherId) => otherId !== sourceId && overlapEnforced(sourceId, otherId) && rectsOverlap(state.layouts[sourceId], state.layouts[otherId]))
+          .sort((a, b) => (state.layouts[a].y || 0) - (state.layouts[b].y || 0));
+        overlapping.forEach((otherId) => {
+          if (state.layouts[otherId] && state.layouts[otherId].locked) {
+            if (!state.layouts[sourceId].locked && pushModuleAway(otherId, sourceId)) {
+              applyLayoutToDom(sourceId);
+              queue.push(sourceId);
+            }
+            return;
+          }
+          if (pushModuleAway(sourceId, otherId)) {
+            applyLayoutToDom(otherId);
+            queue.push(otherId);
+          }
+        });
+      }
+      updateBoardHeight();
+    }
+
+    function cloneLayouts() {
+      return JSON.parse(JSON.stringify(state.layouts));
+    }
+
+    function resetZoneRect(x, y, w, h) {
+      return {
+        x: Math.max(0, x - RESET_ZONE_PADDING),
+        y: Math.max(0, y - RESET_ZONE_PADDING),
+        w: w + RESET_ZONE_PADDING * 2,
+        h: h + RESET_ZONE_PADDING * 2
+      };
+    }
+
+    function isInsideResetZone(layout, zone) {
+      if (!layout || !zone) return false;
+      return (
+        layout.x >= zone.x &&
+        layout.y >= zone.y &&
+        layout.x + layout.w <= zone.x + zone.w &&
+        layout.y + layout.h <= zone.y + zone.h
+      );
+    }
+
+    function upsertDragResetZone(zone, active) {
+      let el = board.querySelector(".drag-reset-zone");
+      if (!el) {
+        el = document.createElement("div");
+        el.className = "drag-reset-zone";
+        board.appendChild(el);
+      }
+      el.style.left = zone.x + "px";
+      el.style.top = zone.y + "px";
+      el.style.width = zone.w + "px";
+      el.style.height = zone.h + "px";
+      el.classList.toggle("active", !!active);
+    }
+
+    function removeDragResetZone() {
+      const el = board.querySelector(".drag-reset-zone");
+      if (el) el.remove();
+    }
+
+    function metricMarkup(id, d) {
+      const [cls, label] = statusClass(d.csNorm);
+      if (id === "market-overview") return `
+        <div class="metric"><span>Symbol</span><strong>${state.symbol}</strong></div>
+        <div class="metric"><span>Global Timeframe</span><strong>${state.timeframe}</strong></div>
+        <div class="score-big ${cls}">${d.csNorm.toFixed(1)}</div>
+        <div class="status ${cls}">${label} | P(Bullish): ${(d.pBull * 100).toFixed(1)}%</div>
+      `;
+      if (id === "top-drivers") return d.drivers.map((x, i) => `<div class="metric"><span>#${i + 1} ${x.label}</span><strong class="${x.value >= 0 ? "bull" : "bear"}">${(x.value * 100).toFixed(2)} bp</strong></div>`).join("");
+      if (id === "technical") return `<div class="metric"><span>Technik-Score</span><strong>${d.G.technical.toFixed(3)}</strong></div><div class="metric"><span>Gewicht</span><strong>${(d.W.technical * 100).toFixed(1)}%</strong></div><div class="metric"><span>Momentum</span><strong>${d.G.technical >= 0 ? "Up-Drift" : "Down-Drift"}</strong></div>`;
+      if (id === "options") return `<div class="kpi-grid"><div class="kpi">Gamma Exposure<strong>${d.options.gex}</strong></div><div class="kpi">Max Pain<strong>${d.options.maxPain}</strong></div><div class="kpi">Put/Call<strong>${d.options.putCall}</strong></div><div class="kpi">Skew<strong>${d.options.skew}</strong></div><div class="kpi">IV Rank<strong>${d.options.ivRank}</strong></div><div class="kpi">0DTE<strong>${d.options.odte}</strong></div></div>`;
+      if (id === "darkpool") return `<div class="metric"><span>Dark Pool Ratio</span><strong>${d.darkpool.dpRatio}</strong></div><div class="metric"><span>Level High</span><strong>${d.darkpool.dpHigh}</strong></div><div class="metric"><span>Level Low</span><strong>${d.darkpool.dpLow}</strong></div><div class="metric"><span>Venue Shift</span><strong>${d.darkpool.venueShift}</strong></div>`;
+      if (id === "borrow") return `<div class="metric"><span>Borrow Fee</span><strong>${d.borrow.fee}</strong></div><div class="metric"><span>Utilization</span><strong>${d.borrow.utilization}</strong></div><div class="metric"><span>Short Interest</span><strong>${d.borrow.shortInterest}</strong></div><div class="metric"><span>Days to Cover</span><strong>${d.borrow.daysToCover}</strong></div>`;
+      if (id === "flow") return `<div class="metric"><span>Spread (bps)</span><strong>${d.flow.spreadBps}</strong></div><div class="metric"><span>Tiefe</span><strong>${d.flow.depth}</strong></div><div class="metric"><span>Imbalance</span><strong>${d.flow.imbalance}</strong></div><div class="metric"><span>ETF Nettoflow</span><strong>${d.flow.etfFlow}</strong></div>`;
+      if (id === "fundamental") return `<div class="kpi-grid"><div class="kpi">KGV<strong>${d.fundamentals.kgv}</strong></div><div class="kpi">PEG<strong>${d.fundamentals.peg}</strong></div><div class="kpi">KBV<strong>${d.fundamentals.kbv}</strong></div><div class="kpi">ROE<strong>${d.fundamentals.roe}</strong></div><div class="kpi">ROIC<strong>${d.fundamentals.roic}</strong></div><div class="kpi">FCF-Marge<strong>${d.fundamentals.fcfMargin}</strong></div><div class="kpi">Debt/Equity<strong>${d.fundamentals.debtToEq}</strong></div><div class="kpi">Nettomarge<strong>${d.fundamentals.netMargin}</strong></div></div>`;
+      if (id === "probabilities") return `<div class="metric"><span>Trendfortsetzung</span><strong>${(d.probs.trend * 100).toFixed(1)}%</strong></div><div class="metric"><span>Mean Reversion</span><strong>${(d.probs.meanRev * 100).toFixed(1)}%</strong></div><div class="metric"><span>Volatilitätsausweitung</span><strong>${(d.probs.volExp * 100).toFixed(1)}%</strong></div><div class="metric"><span>Distribution</span><strong>${(d.probs.distribution * 100).toFixed(1)}%</strong></div>`;
+      if (id === "divergence") return d.divergences.map((x, i) => `<div class="metric"><span>#${i + 1} ${x.pair}</span><strong>${x.strength.toFixed(3)}</strong></div>`).join("");
+      if (id === "macro") return `<div class="metric"><span>Makro-Score</span><strong>${d.G.macro.toFixed(3)}</strong></div><div class="metric"><span>Zins-/Inflationsdruck</span><strong>${d.G.macro >= 0 ? "entspannt" : "erhöht"}</strong></div><div class="metric"><span>Gewicht</span><strong>${(d.W.macro * 100).toFixed(1)}%</strong></div>`;
+      if (id === "sentiment") return `<div class="metric"><span>Sentiment-Score</span><strong>${d.G.sentiment.toFixed(3)}</strong></div><div class="metric"><span>News-Bias</span><strong>${d.G.sentiment >= 0 ? "positiv" : "negativ"}</strong></div><div class="metric"><span>Social Breadth</span><strong>${(40 + Math.abs(d.G.sentiment) * 30).toFixed(0)} / 100</strong></div>`;
+      if (id === "event") return `<div class="metric"><span>Event Risk</span><strong>${d.G.event.toFixed(3)}</strong></div><div class="metric"><span>Erwartete Lücke</span><strong>${(0.7 + Math.abs(d.G.event) * 1.6).toFixed(2)}%</strong></div><div class="metric"><span>Nächstes Event</span><strong>Earnings / Guidance</strong></div>`;
+      if (id === "etf") return `<div class="metric"><span>AUM Tendenz</span><strong>${d.flow.etfFlow.startsWith("+") ? "steigend" : "fallend"}</strong></div><div class="metric"><span>Tracking Stress</span><strong>${(0.05 + Math.abs(d.G.flow) * 0.22).toFixed(3)}</strong></div><div class="metric"><span>Liquidity Proxy</span><strong>${d.flow.depth}</strong></div>`;
+      return "";
+    }
+
+    function moduleHasChart(id) {
+      return MODULE_DEFS[id] && MODULE_DEFS[id].chart !== false;
+    }
+
+    function syncBackdropState() {
+      const modalOpen = !moduleModal.classList.contains("hidden");
+      const overlayOpen = !chartOverlay.classList.contains("hidden");
+      document.body.classList.toggle("backdrop-active", modalOpen || overlayOpen);
+    }
+
+    function moduleAxisMeta(id, tf) {
+      const def = MODULE_DEFS[id] || {};
+      return {
+        xLabel: "Zeit (" + tf + ")",
+        yLabel: def.yLabel || "Indexwert"
+      };
+    }
+
+    function moduleCard(id) {
+      ensureLayout(id);
+      const l = state.layouts[id];
+      const d = state.scoreModel;
+      const moduleTf = state.moduleTf[id] || state.timeframe;
+      const mode = state.chartMode[id] || "candles";
+      const showChart = moduleHasChart(id);
+      const chartSection = showChart
+        ? `
+          <div class="chart-wrap">
+            <div class="chart-head">
+              <span class="chart-title">${moduleAxisMeta(id, moduleTf).yLabel}</span>
+              <div class="chart-head-actions">
+                <button class="icon-btn" title="Vollbild öffnen" data-action="chart-open" data-id="${id}">⤢</button>
+                <select class="chart-select" data-action="chart-mode" data-id="${id}">
+                  <option value="candles" ${mode === "candles" ? "selected" : ""}>Kerzen</option>
+                  <option value="line" ${mode === "line" ? "selected" : ""}>Linie</option>
+                </select>
+                <select class="chart-select" data-action="chart-tf" data-id="${id}">
+                  ${TF_OPTIONS.map((tf) => `<option ${tf === moduleTf ? "selected" : ""}>${tf}</option>`).join("")}
+                </select>
+              </div>
+            </div>
+            <canvas class="chart-canvas" data-chart-id="${id}"></canvas>
+          </div>`
+        : `<div class="chart-placeholder">Für dieses Modul ist kein Zeitreihen-Chart sinnvoll. Fokus liegt auf tabellarischer/driver-basierter Analyse.</div>`;
+      const accent = state.moduleColor[id] || "";
+      const accentStyle = accent ? `border-left: 4px solid ${accent}; background: linear-gradient(180deg, ${accent}22, var(--panel));` : "";
+      return `
+        <article class="module card ${l.locked ? "locked" : ""}" data-module-id="${id}" style="left:${l.x}px;top:${l.y}px;width:${l.w}px;height:${l.h}px;z-index:${l.z};${accentStyle}">
+          <div class="module-header" data-role="drag-handle">
+            <div>
+              <strong>${MODULE_DEFS[id].title}</strong>
+              <span class="chip">${MODULE_DEFS[id].group}</span>
+            </div>
+            <div class="module-actions">
+              <select class="chart-select" data-action="color" data-id="${id}" title="Modul-Farbe">
+                ${MODULE_COLORS.map((c) => `<option value="${c.value}" ${(state.moduleColor[id] || "") === c.value ? "selected" : ""}>${c.name}</option>`).join("")}
+              </select>
+              <button class="icon-btn" data-action="preset" data-size="sm" data-id="${id}">S</button>
+              <button class="icon-btn" data-action="preset" data-size="md" data-id="${id}">M</button>
+              <button class="icon-btn" data-action="preset" data-size="lg" data-id="${id}">L</button>
+              <button class="icon-btn" data-action="overlap" data-id="${id}">${l.allowOverlap ? "Overlap:An" : "Overlap:Aus"}</button>
+              <button class="icon-btn" data-action="lock" data-id="${id}">${l.locked ? "Unlock" : "Lock"}</button>
+              <button class="icon-btn" data-action="toggle" data-id="${id}">Ausblenden</button>
+            </div>
+          </div>
+          ${metricMarkup(id, d)}
+          ${chartSection}
+          <div class="resize-handle" data-action="resize" data-id="${id}"></div>
+        </article>
+      `;
+    }
+
+    function renderBoard() {
+      if (!state.scoreModel) return;
+      board.innerHTML = state.activeModules.map((id) => moduleCard(id)).join("");
+      installModuleActions();
+      installDragAndResize();
+      drawAllCharts();
+      updateBoardHeight();
+    }
+
+    function chartSeries(id, tf) {
+      const rnd = seededRandom(state.symbol + "_" + id + "_" + tf);
+      const lenMap = { "1min": 140, "5min": 120, "30min": 110, "1hour": 100, "4hours": 90, "24hours": 80, "1week": 70, "1month": 60 };
+      const len = lenMap[tf] || 100;
+      const vol = timeframeFactor(tf) * 0.9;
+      let close = 100 + rnd() * 10;
+      const arr = [];
+      for (let i = 0; i < len; i++) {
+        const open = close;
+        close = open + (rnd() - 0.48) * vol * 2.4;
+        const hiPad = rnd() * vol * 1.5;
+        const loPad = rnd() * vol * 1.5;
+        const high = Math.max(open, close) + hiPad;
+        const low = Math.min(open, close) - loPad;
+        arr.push({ o: open, h: high, l: low, c: close });
+      }
+      return arr;
+    }
+
+    function chartLayout(width, height) {
+      return { left: 44, right: 10, top: 10, bottom: 24, width: Math.max(20, width - 54), height: Math.max(20, height - 34) };
+    }
+
+    function xLabelForBack(back, tf) {
+      const unitMap = {
+        "1min": "m",
+        "5min": "x5m",
+        "30min": "x30m",
+        "1hour": "h",
+        "4hours": "x4h",
+        "24hours": "d",
+        "1week": "w",
+        "1month": "M"
+      };
+      return "-" + Math.max(0, back) + unitMap[tf];
+    }
+
+    function drawChart(canvas, candles, tf, hoverIndex, barsVisible, axisMeta, ruler, mode) {
+      const rect = canvas.getBoundingClientRect();
+      const ratio = Math.max(window.devicePixelRatio || 1, 1);
+      canvas.width = Math.floor(rect.width * ratio);
+      canvas.height = Math.floor(rect.height * ratio);
+      const ctx = canvas.getContext("2d");
+      ctx.scale(ratio, ratio);
+      const w = rect.width;
+      const h = rect.height;
+      ctx.clearRect(0, 0, w, h);
+      const l = chartLayout(w, h);
+      const n = candles.length;
+      const visCount = clamp(barsVisible, 12, n);
+      const start = Math.max(0, n - visCount);
+      const visible = candles.slice(start);
+      const min = Math.min(...visible.map((c) => c.l));
+      const max = Math.max(...visible.map((c) => c.h));
+      const span = Math.max(max - min, 0.001);
+
+      ctx.strokeStyle = "rgba(123,164,255,0.22)";
+      ctx.lineWidth = 1;
+      for (let i = 1; i <= 4; i++) {
+        const y = l.top + (l.height / 5) * i;
+        ctx.beginPath();
+        ctx.moveTo(l.left, y);
+        ctx.lineTo(w - l.right, y);
+        ctx.stroke();
+      }
+
+      ctx.strokeStyle = "rgba(179,196,255,0.45)";
+      ctx.beginPath();
+      ctx.moveTo(l.left, l.top);
+      ctx.lineTo(l.left, h - l.bottom);
+      ctx.lineTo(w - l.right, h - l.bottom);
+      ctx.stroke();
+
+      ctx.fillStyle = "#9fb2ef";
+      ctx.font = "10px Inter, Arial, sans-serif";
+      const yTop = max.toFixed(2);
+      const yMid = (min + span / 2).toFixed(2);
+      const yBot = min.toFixed(2);
+      ctx.fillText(yTop, 3, l.top + 3);
+      ctx.fillText(yMid, 3, l.top + l.height / 2 + 3);
+      ctx.fillText(yBot, 3, h - l.bottom + 3);
+      ctx.fillText((axisMeta && axisMeta.yLabel) ? axisMeta.yLabel : "Y (Wert)", 3, 10);
+      ctx.fillText((axisMeta && axisMeta.xLabel) ? axisMeta.xLabel : ("X (" + tf + ")"), w - 90, h - 3);
+      ctx.fillText(xLabelForBack(n - 1 - start, tf), l.left, h - 4);
+      const midIndex = Math.floor((visible.length - 1) / 2);
+      ctx.fillText(xLabelForBack(n - 1 - (start + midIndex), tf), l.left + l.width / 2 - 16, h - 4);
+      ctx.fillText("0", w - l.right - 8, h - 4);
+
+      const step = l.width / Math.max(visible.length, 1);
+      if (mode === "line") {
+        ctx.lineWidth = 2;
+        const upLine = visible[visible.length - 1].c >= visible[0].c;
+        ctx.strokeStyle = upLine ? "#33d17a" : "#ff6b81";
+        ctx.beginPath();
+        visible.forEach((c, i) => {
+          const x = l.left + (i + 0.5) * step;
+          const y = l.top + (1 - (c.c - min) / span) * l.height;
+          if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+        });
+        ctx.stroke();
+      } else {
+        const candleW = clamp(step * 0.65, 1, 14);
+        visible.forEach((c, i) => {
+          const x = l.left + (i + 0.5) * step;
+          const yHigh = l.top + (1 - (c.h - min) / span) * l.height;
+          const yLow = l.top + (1 - (c.l - min) / span) * l.height;
+          const yOpen = l.top + (1 - (c.o - min) / span) * l.height;
+          const yClose = l.top + (1 - (c.c - min) / span) * l.height;
+          const up = c.c >= c.o;
+          ctx.strokeStyle = up ? "#33d17a" : "#ff6b81";
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.moveTo(x, yHigh);
+          ctx.lineTo(x, yLow);
+          ctx.stroke();
+          const top = Math.min(yOpen, yClose);
+          const bodyH = Math.max(1.2, Math.abs(yClose - yOpen));
+          ctx.fillStyle = up ? "rgba(51,209,122,0.85)" : "rgba(255,107,129,0.85)";
+          ctx.fillRect(x - candleW / 2, top, candleW, bodyH);
+        });
+      }
+
+      if (hoverIndex !== null && hoverIndex >= 0 && hoverIndex < visible.length) {
+        const c = visible[hoverIndex];
+        const hv = c.c;
+        const hx = l.left + (hoverIndex + 0.5) * step;
+        const hy = l.top + (1 - (hv - min) / span) * l.height;
+
+        ctx.strokeStyle = "rgba(210,222,255,0.45)";
+        ctx.beginPath();
+        ctx.moveTo(hx, l.top);
+        ctx.lineTo(hx, h - l.bottom);
+        ctx.moveTo(l.left, hy);
+        ctx.lineTo(w - l.right, hy);
+        ctx.stroke();
+
+        ctx.fillStyle = "#ffffff";
+        ctx.beginPath();
+        ctx.arc(hx, hy, 2.8, 0, Math.PI * 2);
+        ctx.fill();
+
+        const absIndex = start + hoverIndex;
+        const xv = xLabelForBack(n - 1 - absIndex, tf);
+        const yv = hv.toFixed(3);
+        const text = "X: " + xv + " | C: " + yv + " | O:" + c.o.toFixed(2) + " H:" + c.h.toFixed(2) + " L:" + c.l.toFixed(2);
+        ctx.font = "10px Inter, Arial, sans-serif";
+        const tw = ctx.measureText(text).width;
+        const boxW = tw + 12;
+        const boxH = 18;
+        let boxX = hx + 8;
+        let boxY = hy - 24;
+        if (boxX + boxW > w - 4) boxX = hx - boxW - 8;
+        if (boxY < 4) boxY = hy + 8;
+
+        ctx.fillStyle = "rgba(20,28,55,0.92)";
+        ctx.fillRect(boxX, boxY, boxW, boxH);
+        ctx.strokeStyle = "rgba(130,156,240,0.8)";
+        ctx.strokeRect(boxX, boxY, boxW, boxH);
+        ctx.fillStyle = "#dfe7ff";
+        ctx.fillText(text, boxX + 6, boxY + 12);
+
+        const yAxisText = hv.toFixed(2);
+        const yBoxW = ctx.measureText(yAxisText).width + 8;
+        ctx.fillStyle = "rgba(20,28,55,0.96)";
+        ctx.fillRect(l.left - yBoxW - 3, hy - 8, yBoxW, 16);
+        ctx.strokeStyle = "rgba(130,156,240,0.9)";
+        ctx.strokeRect(l.left - yBoxW - 3, hy - 8, yBoxW, 16);
+        ctx.fillStyle = "#dfe7ff";
+        ctx.fillText(yAxisText, l.left - yBoxW + 1, hy + 3);
+
+        const xBoxText = xv;
+        const xBoxW = ctx.measureText(xBoxText).width + 10;
+        let xBoxX = hx - xBoxW / 2;
+        xBoxX = clamp(xBoxX, l.left, w - l.right - xBoxW);
+        ctx.fillStyle = "rgba(20,28,55,0.96)";
+        ctx.fillRect(xBoxX, h - l.bottom + 2, xBoxW, 16);
+        ctx.strokeStyle = "rgba(130,156,240,0.9)";
+        ctx.strokeRect(xBoxX, h - l.bottom + 2, xBoxW, 16);
+        ctx.fillStyle = "#dfe7ff";
+        ctx.fillText(xBoxText, xBoxX + 5, h - l.bottom + 13);
+      }
+
+      if (ruler && ruler.enabled && ruler.startIndex !== null && ruler.startIndex >= 0 && ruler.startIndex < visible.length) {
+        const s = visible[ruler.startIndex];
+        const eIndex = (ruler.endIndex !== null && ruler.endIndex >= 0) ? ruler.endIndex : ruler.startIndex;
+        const e = visible[clamp(eIndex, 0, visible.length - 1)];
+        const sx = l.left + (ruler.startIndex + 0.5) * step;
+        const ex = l.left + (clamp(eIndex, 0, visible.length - 1) + 0.5) * step;
+        const sy = l.top + (1 - (s.c - min) / span) * l.height;
+        const ey = l.top + (1 - (e.c - min) / span) * l.height;
+        ctx.strokeStyle = "#ffd166";
+        ctx.lineWidth = 1.4;
+        ctx.setLineDash([4, 3]);
+        ctx.beginPath();
+        ctx.moveTo(sx, sy);
+        ctx.lineTo(ex, ey);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        const delta = e.c - s.c;
+        const pct = s.c !== 0 ? (delta / s.c) * 100 : 0;
+        const bars = Math.abs(clamp(eIndex, 0, visible.length - 1) - ruler.startIndex);
+        const txt = "Lineal: dY " + delta.toFixed(2) + " (" + pct.toFixed(2) + "%) | dX " + bars + " Bars";
+        ctx.font = "10px Inter, Arial, sans-serif";
+        const tw = ctx.measureText(txt).width + 10;
+        ctx.fillStyle = "rgba(45,36,10,0.92)";
+        ctx.fillRect(l.left + 8, l.top + 8, tw, 18);
+        ctx.strokeStyle = "rgba(255,209,102,0.9)";
+        ctx.strokeRect(l.left + 8, l.top + 8, tw, 18);
+        ctx.fillStyle = "#ffe6a4";
+        ctx.fillText(txt, l.left + 13, l.top + 20);
+      }
+
+      ctx.fillStyle = "#8ca3e6";
+      ctx.font = "10px Inter, Arial, sans-serif";
+      ctx.fillText("Wheel: Zoom (" + visCount + " Kerzen)", w - 122, 12);
+    }
+
+    function drawAllCharts() {
+      board.querySelectorAll("[data-chart-id]").forEach((c) => {
+        const id = c.dataset.chartId;
+        const tf = state.moduleTf[id] || state.timeframe;
+        const candles = chartSeries(id, tf);
+        const barsVisible = clamp(state.chartViewport[id] || 40, 12, candles.length);
+        const meta = moduleAxisMeta(id, tf);
+        const mode = state.chartMode[id] || "candles";
+        state.chartViewport[id] = barsVisible;
+        drawChart(c, candles, tf, null, barsVisible, meta, null, mode);
+
+        c.onmousemove = (ev) => {
+          const rect = c.getBoundingClientRect();
+          const l = chartLayout(rect.width, rect.height);
+          const localX = ev.clientX - rect.left;
+          const rel = clamp((localX - l.left) / l.width, 0, 1);
+          const currentBars = clamp(state.chartViewport[id] || barsVisible, 12, candles.length);
+          const idx = Math.round(rel * (currentBars - 1));
+          drawChart(c, candles, tf, idx, currentBars, meta, null, mode);
+        };
+        c.onmouseleave = () => {
+          const currentBars = clamp(state.chartViewport[id] || barsVisible, 12, candles.length);
+          drawChart(c, candles, tf, null, currentBars, meta, null, mode);
+        };
+        c.onclick = () => openChartOverlay(id);
+        c.onwheel = null;
+        c.addEventListener("wheel", (ev) => {
+          ev.preventDefault();
+          const delta = ev.deltaY > 0 ? 4 : -4;
+          const next = clamp((state.chartViewport[id] || barsVisible) + delta, 12, candles.length);
+          state.chartViewport[id] = next;
+          persistState();
+          drawChart(c, candles, tf, null, next, meta, null, mode);
+        }, { passive: false });
+      });
+    }
+
+    function openChartOverlay(moduleId) {
+      if (!moduleHasChart(moduleId)) return;
+      state.overlay.open = true;
+      state.overlay.moduleId = moduleId;
+      state.overlay.tf = state.moduleTf[moduleId] || state.timeframe;
+      state.overlay.ruler = false;
+      state.overlay.rulerStart = null;
+      state.overlay.hoverIndex = null;
+      chartOverlay.classList.remove("hidden");
+      overlayTitle.textContent = MODULE_DEFS[moduleId].title + " - " + state.symbol;
+      overlaySub.textContent = "Vollbildchart | Klick = Ruler Start/Ende, Wheel = Zoom";
+      overlayTfSelect.innerHTML = TF_OPTIONS.map((tf) => `<option ${tf === state.overlay.tf ? "selected" : ""}>${tf}</option>`).join("");
+      overlayModeSelect.innerHTML = `<option value="candles">Kerzen</option><option value="line">Linie</option>`;
+      overlayModeSelect.value = state.chartMode[moduleId] || "candles";
+      document.getElementById("overlayRulerBtn").textContent = "Lineal: Aus";
+      renderOverlayChart();
+      syncBackdropState();
+    }
+
+    function closeChartOverlay() {
+      state.overlay.open = false;
+      chartOverlay.classList.add("hidden");
+      syncBackdropState();
+    }
+
+    function renderOverlayChart() {
+      if (!state.overlay.open || !state.overlay.moduleId) return;
+      const id = state.overlay.moduleId;
+      const tf = state.overlay.tf;
+      const candles = chartSeries(id, tf);
+      const currentBars = clamp(state.chartViewport[id] || 60, 12, candles.length);
+      state.chartViewport[id] = currentBars;
+      const rect = overlayCanvas.getBoundingClientRect();
+      if (rect.width < 10 || rect.height < 10) return;
+      drawChart(
+        overlayCanvas,
+        candles,
+        tf,
+        state.overlay.hoverIndex,
+        currentBars,
+        moduleAxisMeta(id, tf),
+        { enabled: state.overlay.ruler, startIndex: state.overlay.rulerStart, endIndex: state.overlay.hoverIndex },
+        state.chartMode[id] || "candles"
+      );
+    }
+
+    function updateBoardHeight() {
+      let maxBottom = 900;
+      state.activeModules.forEach((id) => {
+        const l = state.layouts[id];
+        if (!l) return;
+        maxBottom = Math.max(maxBottom, l.y + l.h + 30);
+      });
+      board.style.height = maxBottom + "px";
+    }
+
+    function installModuleActions() {
+      board.querySelectorAll("[data-action='toggle']").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const id = btn.dataset.id;
+          state.activeModules = state.activeModules.filter((x) => x !== id);
+          persistState();
+          renderBoard();
+        });
+      });
+      board.querySelectorAll("[data-action='lock']").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const id = btn.dataset.id;
+          state.layouts[id].locked = !state.layouts[id].locked;
+          persistState();
+          renderBoard();
+        });
+      });
+      board.querySelectorAll("[data-action='color']").forEach((sel) => {
+        sel.addEventListener("change", () => {
+          const id = sel.dataset.id;
+          const val = sel.value;
+          state.moduleColor[id] = val || null;
+          if (!val) delete state.moduleColor[id];
+          persistState();
+          renderBoard();
+        });
+      });
+      board.querySelectorAll("[data-action='overlap']").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const id = btn.dataset.id;
+          state.layouts[id].allowOverlap = !state.layouts[id].allowOverlap;
+          if (!state.layouts[id].allowOverlap) {
+            resolveCollisionsFrom(id);
+          }
+          persistState();
+          renderBoard();
+        });
+      });
+      board.querySelectorAll("[data-action='preset']").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const id = btn.dataset.id;
+          const size = btn.dataset.size;
+          const l = state.layouts[id];
+          if (size === "sm") { l.w = 320; l.h = Math.max(250, MODULE_DEFS[id].baseH - 30); }
+          if (size === "md") { l.w = 390; l.h = Math.max(280, MODULE_DEFS[id].baseH); }
+          if (size === "lg") { l.w = 500; l.h = Math.max(320, MODULE_DEFS[id].baseH + 70); }
+          l.w = snap(l.w); l.h = snap(l.h);
+          persistState();
+          renderBoard();
+        });
+      });
+      board.querySelectorAll("[data-action='chart-tf']").forEach((sel) => {
+        sel.addEventListener("change", () => {
+          state.moduleTf[sel.dataset.id] = sel.value;
+          if (state.overlay.open && state.overlay.moduleId === sel.dataset.id) {
+            state.overlay.tf = sel.value;
+          }
+          persistState();
+          drawAllCharts();
+          renderOverlayChart();
+        });
+      });
+      board.querySelectorAll("[data-action='chart-mode']").forEach((sel) => {
+        sel.addEventListener("change", () => {
+          const id = sel.dataset.id;
+          state.chartMode[id] = sel.value;
+          if (state.overlay.open && state.overlay.moduleId === id) {
+            overlayModeSelect.value = sel.value;
+          }
+          persistState();
+          drawAllCharts();
+          renderOverlayChart();
+        });
+      });
+      board.querySelectorAll("[data-action='chart-open']").forEach((btn) => {
+        btn.addEventListener("click", () => openChartOverlay(btn.dataset.id));
+      });
+    }
+
+    function bringFront(id) {
+      state.zCounter += 1;
+      state.layouts[id].z = state.zCounter;
+    }
+
+    function installDragAndResize() {
+      board.querySelectorAll(".module").forEach((moduleEl) => {
+        const id = moduleEl.dataset.moduleId;
+        const layout = state.layouts[id];
+        moduleEl.addEventListener("pointerdown", () => {
+          bringFront(id);
+          moduleEl.classList.add("active");
+          moduleEl.style.zIndex = String(state.layouts[id].z);
+        });
+        moduleEl.addEventListener("pointerup", () => moduleEl.classList.remove("active"));
+
+        const handle = moduleEl.querySelector("[data-role='drag-handle']");
+        handle.addEventListener("pointerdown", (e) => {
+          if (layout.locked || e.target.closest("button") || e.target.closest("select")) return;
+          e.preventDefault();
+          bringFront(id);
+          const startLayoutsSnapshot = cloneLayouts();
+          const resetZone = resetZoneRect(layout.x, layout.y, layout.w, layout.h);
+          upsertDragResetZone(resetZone, true);
+          const startX = e.clientX;
+          const startY = e.clientY;
+          const startL = layout.x;
+          const startT = layout.y;
+          const onMove = (ev) => {
+            const dx = ev.clientX - startX;
+            const dy = ev.clientY - startY;
+            layout.x = clamp(snap(startL + dx), 0, Math.max(0, board.clientWidth - layout.w));
+            layout.y = Math.max(0, snap(startT + dy));
+            moduleEl.style.left = layout.x + "px";
+            moduleEl.style.top = layout.y + "px";
+            if (!layout.allowOverlap) {
+              resolveCollisionsFrom(id);
+            }
+            upsertDragResetZone(resetZone, isInsideResetZone(layout, resetZone));
+            updateBoardHeight();
+          };
+          const onUp = () => {
+            window.removeEventListener("pointermove", onMove);
+            window.removeEventListener("pointerup", onUp);
+            const shouldReset = isInsideResetZone(layout, resetZone);
+            removeDragResetZone();
+            if (shouldReset) {
+              state.layouts = startLayoutsSnapshot;
+              renderBoard();
+              persistState();
+              return;
+            }
+            if (!layout.allowOverlap) {
+              resolveCollisionsFrom(id);
+            }
+            persistState();
+          };
+          window.addEventListener("pointermove", onMove);
+          window.addEventListener("pointerup", onUp);
+        });
+
+        const resizeHandle = moduleEl.querySelector("[data-action='resize']");
+        resizeHandle.addEventListener("pointerdown", (e) => {
+          if (layout.locked) return;
+          e.preventDefault();
+          const startX = e.clientX;
+          const startY = e.clientY;
+          const startW = layout.w;
+          const startH = layout.h;
+          const onMove = (ev) => {
+            const dx = ev.clientX - startX;
+            const dy = ev.clientY - startY;
+            layout.w = clamp(snap(startW + dx), MIN_W, Math.max(MIN_W, board.clientWidth - layout.x));
+            layout.h = Math.max(MIN_H, snap(startH + dy));
+            moduleEl.style.width = layout.w + "px";
+            moduleEl.style.height = layout.h + "px";
+            if (!layout.allowOverlap) resolveCollisionsFrom(id);
+            drawAllCharts();
+            updateBoardHeight();
+          };
+          const onUp = () => {
+            window.removeEventListener("pointermove", onMove);
+            window.removeEventListener("pointerup", onUp);
+            persistState();
+          };
+          window.addEventListener("pointermove", onMove);
+          window.addEventListener("pointerup", onUp);
+        });
+      });
+    }
+
+    function intelligentResizeAll() {
+      state.activeModules.forEach((id, idx) => {
+        ensureLayout(id);
+        const l = state.layouts[id];
+        l.w = snap(Math.max(330, Math.min(500, 340 + ((idx % 3) * 60))));
+        l.h = snap(Math.max(MIN_H, MODULE_DEFS[id].baseH || 280));
+      });
+      state.activeModules.forEach((id) => {
+        if (!state.layouts[id].allowOverlap) resolveCollisionsFrom(id);
+      });
+      persistState();
+      renderBoard();
+    }
+
+    function updateAlertBanner() {
+      const pBull = state.scoreModel ? state.scoreModel.pBull * 100 : 0;
+      if (pBull >= state.alertBullThreshold) {
+        alertBanner.classList.remove("hidden");
+        alertBanner.textContent = "Signal: Bullish-Schwelle erreicht (" + pBull.toFixed(1) + "% >= " + state.alertBullThreshold + "%) für " + state.symbol + " auf " + state.timeframe + ".";
+      } else {
+        alertBanner.classList.add("hidden");
+      }
+    }
+
+    function refreshScore() {
+      state.symbol = (tickerInput.value || "AAPL").toUpperCase().trim();
+      state.timeframe = timeframeSelect.value;
+      state.scoreModel = computeModel(state.symbol, state.timeframe);
+      state.activeModules.forEach((id) => { if (!state.moduleTf[id]) state.moduleTf[id] = state.timeframe; });
+      persistState();
+      renderBoard();
+      updateAlertBanner();
+      renderOverlayChart();
+    }
+
+    function openAddModal() {
+      moduleTableBody.innerHTML = "";
+      Object.keys(MODULE_DEFS).forEach((id) => {
+        const active = state.activeModules.includes(id);
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${MODULE_DEFS[id].title}</td>
+          <td><button class="toggle-btn ${active ? "on-active" : ""}" data-module-id="${id}" data-toggle="on">On</button></td>
+          <td><button class="toggle-btn ${!active ? "off-active" : ""}" data-module-id="${id}" data-toggle="off">Off</button></td>
+        `;
+        moduleTableBody.appendChild(tr);
+      });
+
+      moduleTableBody.querySelectorAll("[data-toggle='on']").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const id = btn.dataset.moduleId;
+          if (!state.activeModules.includes(id)) {
+            state.activeModules.push(id);
+            ensureLayout(id);
+            state.moduleTf[id] = state.timeframe;
+            state.chartMode[id] = state.chartMode[id] || "candles";
+            resolveCollisionsFrom(id);
+            persistState();
+            renderBoard();
+          }
+          openAddModal();
+        });
+      });
+      moduleTableBody.querySelectorAll("[data-toggle='off']").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const id = btn.dataset.moduleId;
+          state.activeModules = state.activeModules.filter((x) => x !== id);
+          persistState();
+          renderBoard();
+          openAddModal();
+        });
+      });
+      moduleModal.classList.remove("hidden");
+      syncBackdropState();
+    }
+
+    const closeAddModal = () => {
+      moduleModal.classList.add("hidden");
+      syncBackdropState();
+    };
+
+    function resetLayout() {
+      state.layouts = {};
+      state.activeModules.forEach((id) => ensureLayout(id));
+      intelligentResizeAll();
+      persistState();
+      renderBoard();
+    }
+
+    function saveLayout() {
+      const snapshot = {
+        layouts: JSON.parse(JSON.stringify(state.layouts)),
+        activeModules: [...state.activeModules]
+      };
+      state.layoutHistory.push(snapshot);
+      if (state.layoutHistory.length > 20) state.layoutHistory.shift();
+      persistState();
+      alertBanner.classList.remove("hidden");
+      alertBanner.textContent = "Layout gesichert. Du kannst mit „← Zurück“ die vorherige Position wiederherstellen.";
+      setTimeout(() => alertBanner.classList.add("hidden"), 3000);
+    }
+
+    function restoreLayout() {
+      if (state.layoutHistory.length === 0) {
+        alertBanner.classList.remove("hidden");
+        alertBanner.textContent = "Kein gesichertes Layout vorhanden. Klicke zuerst auf „Layout sichern“.";
+        setTimeout(() => alertBanner.classList.add("hidden"), 2500);
+        return;
+      }
+      const snapshot = state.layoutHistory.pop();
+      state.layouts = JSON.parse(JSON.stringify(snapshot.layouts));
+      state.activeModules = [...snapshot.activeModules];
+      persistState();
+      renderBoard();
+      updateBoardHeight();
+      alertBanner.classList.remove("hidden");
+      alertBanner.textContent = "Vorherige Position wiederhergestellt.";
+      setTimeout(() => alertBanner.classList.add("hidden"), 2000);
+    }
+
+    function persistState() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({
+        symbol: state.symbol,
+        timeframe: state.timeframe,
+        activeModules: state.activeModules,
+        layouts: state.layouts,
+        layoutHistory: state.layoutHistory.slice(-10),
+        moduleTf: state.moduleTf,
+        moduleColor: state.moduleColor,
+        chartViewport: state.chartViewport,
+        chartMode: state.chartMode,
+        alertBullThreshold: state.alertBullThreshold,
+        zCounter: state.zCounter
+      }));
+    }
+
+    function loadState() {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return;
+      try {
+        const p = JSON.parse(raw);
+        if (p.symbol) state.symbol = p.symbol;
+        if (p.timeframe) state.timeframe = p.timeframe;
+        if (Array.isArray(p.activeModules)) state.activeModules = p.activeModules;
+        if (p.layouts && typeof p.layouts === "object") state.layouts = p.layouts;
+        if (Array.isArray(p.layoutHistory)) state.layoutHistory = p.layoutHistory;
+        if (p.moduleTf && typeof p.moduleTf === "object") state.moduleTf = p.moduleTf;
+        if (p.moduleColor && typeof p.moduleColor === "object") state.moduleColor = p.moduleColor;
+        if (p.chartViewport && typeof p.chartViewport === "object") state.chartViewport = p.chartViewport;
+        if (p.chartMode && typeof p.chartMode === "object") state.chartMode = p.chartMode;
+        if (typeof p.alertBullThreshold === "number") state.alertBullThreshold = p.alertBullThreshold;
+        if (typeof p.zCounter === "number") state.zCounter = p.zCounter;
+      } catch (_) {}
+    }
+
+    function setLoggedIn(flag) {
+      localStorage.setItem("quant_pinwand_auth", flag ? "1" : "0");
+      loginView.classList.toggle("hidden", flag);
+      appView.classList.toggle("hidden", !flag);
+      if (flag) refreshScore();
+    }
+
+    function installEvents() {
+      document.getElementById("loginBtn").addEventListener("click", () => {
+        const u = document.getElementById("username").value.trim();
+        const p = document.getElementById("password").value.trim();
+        if (u === AUTH_USER && p === AUTH_PASS) {
+          loginError.textContent = "";
+          setLoggedIn(true);
+        } else {
+          loginError.textContent = "Falsche Zugangsdaten.";
+        }
+      });
+      document.getElementById("logoutBtn").addEventListener("click", () => setLoggedIn(false));
+      document.getElementById("refreshBtn").addEventListener("click", refreshScore);
+      timeframeSelect.addEventListener("change", refreshScore);
+      document.getElementById("saveLayoutBtn").addEventListener("click", saveLayout);
+      document.getElementById("undoLayoutBtn").addEventListener("click", restoreLayout);
+      document.getElementById("addModuleBtn").addEventListener("click", openAddModal);
+      document.getElementById("closeModalBtn").addEventListener("click", closeAddModal);
+      document.getElementById("autoSizeBtn").addEventListener("click", intelligentResizeAll);
+      document.getElementById("resetLayoutBtn").addEventListener("click", resetLayout);
+      document.getElementById("closePositionBtn").addEventListener("click", () => {
+        const ok = window.confirm("Position für " + state.symbol + " wirklich schließen?");
+        if (!ok) return;
+        alertBanner.classList.remove("hidden");
+        alertBanner.textContent = "Position für " + state.symbol + " wurde geschlossen (Demo-Aktion).";
+      });
+      document.querySelectorAll("[data-q-ticker]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          tickerInput.value = btn.dataset.qTicker;
+          refreshScore();
+        });
+      });
+      document.getElementById("applyAlertBtn").addEventListener("click", () => {
+        const v = Number(document.getElementById("bullAlertInput").value);
+        state.alertBullThreshold = clamp(isNaN(v) ? 70 : v, 1, 99);
+        document.getElementById("bullAlertInput").value = String(state.alertBullThreshold);
+        persistState();
+        updateAlertBanner();
+      });
+      moduleModal.addEventListener("click", (e) => { if (e.target === moduleModal) closeAddModal(); });
+      document.getElementById("overlayCloseBtn").addEventListener("click", closeChartOverlay);
+      chartOverlay.addEventListener("click", (e) => { if (e.target === chartOverlay) closeChartOverlay(); });
+      document.getElementById("overlayRulerBtn").addEventListener("click", () => {
+        state.overlay.ruler = !state.overlay.ruler;
+        state.overlay.rulerStart = null;
+        document.getElementById("overlayRulerBtn").textContent = "Lineal: " + (state.overlay.ruler ? "An" : "Aus");
+        renderOverlayChart();
+      });
+      overlayTfSelect.addEventListener("change", () => {
+        state.overlay.tf = overlayTfSelect.value;
+        if (state.overlay.moduleId) {
+          state.moduleTf[state.overlay.moduleId] = state.overlay.tf;
+        }
+        persistState();
+        drawAllCharts();
+        renderOverlayChart();
+      });
+      overlayModeSelect.addEventListener("change", () => {
+        if (!state.overlay.moduleId) return;
+        state.chartMode[state.overlay.moduleId] = overlayModeSelect.value;
+        persistState();
+        drawAllCharts();
+        renderOverlayChart();
+      });
+
+      overlayCanvas.addEventListener("mousemove", (ev) => {
+        if (!state.overlay.open || !state.overlay.moduleId) return;
+        const id = state.overlay.moduleId;
+        const tf = state.overlay.tf;
+        const candles = chartSeries(id, tf);
+        const bars = clamp(state.chartViewport[id] || 60, 12, candles.length);
+        const rect = overlayCanvas.getBoundingClientRect();
+        const l = chartLayout(rect.width, rect.height);
+        const rel = clamp((ev.clientX - rect.left - l.left) / l.width, 0, 1);
+        state.overlay.hoverIndex = Math.round(rel * (bars - 1));
+        renderOverlayChart();
+      });
+      overlayCanvas.addEventListener("mouseleave", () => {
+        state.overlay.hoverIndex = null;
+        renderOverlayChart();
+      });
+      overlayCanvas.addEventListener("click", () => {
+        if (!state.overlay.ruler) return;
+        if (state.overlay.hoverIndex === null) return;
+        if (state.overlay.rulerStart === null) {
+          state.overlay.rulerStart = state.overlay.hoverIndex;
+        } else {
+          state.overlay.rulerStart = null;
+        }
+        renderOverlayChart();
+      });
+      overlayCanvas.addEventListener("wheel", (ev) => {
+        if (!state.overlay.open || !state.overlay.moduleId) return;
+        const id = state.overlay.moduleId;
+        const tf = state.overlay.tf;
+        const candles = chartSeries(id, tf);
+        ev.preventDefault();
+        const delta = ev.deltaY > 0 ? 6 : -6;
+        state.chartViewport[id] = clamp((state.chartViewport[id] || 60) + delta, 12, candles.length);
+        persistState();
+        renderOverlayChart();
+        drawAllCharts();
+      }, { passive: false });
+      window.addEventListener("resize", () => {
+        state.activeModules.forEach((id) => {
+          const l = state.layouts[id];
+          if (!l) return;
+          l.x = clamp(l.x, 0, Math.max(0, board.clientWidth - l.w));
+        });
+        renderBoard();
+        renderOverlayChart();
+      });
+    }
+
+    function init() {
+      loadState();
+      tickerInput.value = state.symbol;
+      timeframeSelect.value = state.timeframe;
+      document.getElementById("bullAlertInput").value = String(state.alertBullThreshold);
+      state.activeModules.forEach((id) => {
+        ensureLayout(id);
+        if (typeof state.layouts[id].allowOverlap !== "boolean") state.layouts[id].allowOverlap = false;
+        if (!state.chartMode[id]) state.chartMode[id] = "candles";
+      });
+      installEvents();
+      const auth = localStorage.getItem("quant_pinwand_auth") === "1";
+      setLoggedIn(auth);
+    }
+
+    init();
+  </script>
+</body>
+</html>
