@@ -165,6 +165,22 @@
       color: var(--muted);
     }
     .module-actions { display: flex; gap: 6px; align-items: center; }
+    .info-btn {
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      border: 1px solid #5a6da8;
+      background: rgba(90, 109, 168, 0.35);
+      color: #b8c8f0;
+      font-size: 11px;
+      font-weight: 700;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .info-btn:hover { background: rgba(90, 109, 168, 0.6); color: #fff; }
     .icon-btn {
       border: 1px solid #394a80;
       background: #171d35;
@@ -478,6 +494,16 @@
     </div>
   </div>
 
+  <div id="infoOverlay" class="overlay-modal hidden">
+    <div class="card overlay-card" style="max-width: 520px; max-height: 85vh; overflow: auto;">
+      <div class="overlay-top">
+        <strong id="infoOverlayTitle">Modul-Info</strong>
+        <button id="infoOverlayCloseBtn" class="secondary">Schließen</button>
+      </div>
+      <div id="infoOverlayContent" class="sub" style="line-height: 1.6; margin-top: 12px; white-space: pre-wrap;"></div>
+    </div>
+  </div>
+
   <div id="chartOverlay" class="overlay-modal hidden">
     <div class="card overlay-card">
       <div class="overlay-top">
@@ -529,6 +555,23 @@
       "event": { title: "Event-Risiko", group: "event", baseH: 270, chart: true, yLabel: "Event Risk Index" },
       "probabilities": { title: "Regime-Wahrscheinlichkeiten", group: "technical", baseH: 280, chart: false },
       "divergence": { title: "Divergenz-Monitor", group: "technical", baseH: 270, chart: false }
+    };
+
+    const MODULE_INFO = {
+      "market-overview": "Zeigt den Composite Score (-100 bis +100) und die Wahrscheinlichkeit für eine bullische Marktstimmung. Der Score fasst technische, optionsbasierte, Flow-, Fundamental-, Makro-, Sentiment- und Event-Faktoren zusammen. Je höher der Wert, desto bullischer die Einschätzung.",
+      "top-drivers": "Die drei Faktoren mit dem stärksten Einfluss auf den Composite Score. Basis-Punkte (bp) zeigen, wie stark jeder Treiber den Gesamtscore beeinflusst. Positive Werte stützen eine bullische, negative eine bärische Sicht.",
+      "technical": "Technische Struktur: Momentum, Trend und Chart-Signale. Der Score wird über Rolling Z-Scores berechnet und adaptiv gewichtet. Up-Drift = aufwärtsgerichtetes Momentum, Down-Drift = abwärtsgerichtet.",
+      "options": "Options- und Dealer-Positionierung: Gamma Exposure (GEX), Max Pain, Put/Call-Ratio, Skew, IV Rank und 0DTE-Anteil. GEX zeigt, ob Market Maker eher long oder short Gamma sind – relevant für Mean Reversion vs. Trendverstärkung.",
+      "darkpool": "Dark-Pool-Levels: Anteil des Handels außerhalb regulärer Börsen, typische Preislevel und Venue-Shift. Hohe Dark-Pool-Ratio kann auf institutionelle Aktivität hinweisen.",
+      "borrow": "Borrow Fees und Short Interest: Kosten für Leerverkäufe, Ausleihquote und Short Interest. Hohe Borrow Fees signalisieren starke Short-Nachfrage oder Knappheit.",
+      "flow": "Flow & Liquidität: Spread, Orderbuch-Tiefe, Order-Imbalance und ETF-Nettoflows. Erfasst, ob institutionelle Käufer oder Verkäufer dominieren.",
+      "fundamental": "Fundamental-Engine: KGV, PEG, KBV, ROE, ROIC, FCF-Marge, Debt/Equity und Nettomarge. Bewertungs- und Qualitätskennzahlen des Unternehmens.",
+      "etf": "ETF & Flows: AUM-Tendenz, Tracking-Stress und Liquiditäts-Proxy. Zeigt, ob ETFs Zu- oder Abflüsse verzeichnen.",
+      "macro": "Makroökonomie: Zins-, Inflations- und Wachstumsdruck. Der Makro-Score reagiert auf Zentralbankentscheidungen und Konjunkturdaten.",
+      "sentiment": "Sentiment & News: News-Bias und Social-Media-Breadth. Misst die Stimmung in Medien und sozialen Netzwerken.",
+      "event": "Event-Risiko: Erwartete Kurslücken durch Earnings, Guidance oder andere Ereignisse. Höherer Score = größeres potenzielles Risiko.",
+      "probabilities": "Regime-Wahrscheinlichkeiten: Trendfortsetzung, Mean Reversion, Volatilitätsausweitung und Distribution. Basiert auf HMM-Modellierung der Marktphasen.",
+      "divergence": "Divergenz-Monitor: Zeigt Abweichungen zwischen Faktorgruppen (z. B. Technik vs. Fundamental). Starke Divergenzen können Frühindikatoren für Wendepunkte sein."
     };
 
     const DEFAULT_ACTIVE = ["market-overview", "top-drivers", "technical", "options", "darkpool", "borrow", "fundamental", "probabilities"];
@@ -888,7 +931,22 @@
     function syncBackdropState() {
       const modalOpen = !moduleModal.classList.contains("hidden");
       const overlayOpen = !chartOverlay.classList.contains("hidden");
-      document.body.classList.toggle("backdrop-active", modalOpen || overlayOpen);
+      const infoOpen = !document.getElementById("infoOverlay").classList.contains("hidden");
+      document.body.classList.toggle("backdrop-active", modalOpen || overlayOpen || infoOpen);
+    }
+
+    function openInfoOverlay(moduleId) {
+      const title = MODULE_DEFS[moduleId] ? MODULE_DEFS[moduleId].title : "Modul";
+      const content = MODULE_INFO[moduleId] || "Keine Erklärung für dieses Modul hinterlegt.";
+      document.getElementById("infoOverlayTitle").textContent = title;
+      document.getElementById("infoOverlayContent").textContent = content;
+      document.getElementById("infoOverlay").classList.remove("hidden");
+      syncBackdropState();
+    }
+
+    function closeInfoOverlay() {
+      document.getElementById("infoOverlay").classList.add("hidden");
+      syncBackdropState();
     }
 
     function moduleAxisMeta(id, tf) {
@@ -930,9 +988,12 @@
       return `
         <article class="module card ${l.locked ? "locked" : ""}" data-module-id="${id}" style="left:${l.x}px;top:${l.y}px;width:${l.w}px;height:${l.h}px;z-index:${l.z};${accentStyle}">
           <div class="module-header" data-role="drag-handle">
-            <div>
-              <strong>${MODULE_DEFS[id].title}</strong>
-              <span class="chip">${MODULE_DEFS[id].group}</span>
+            <div style="display: flex; align-items: center; gap: 6px;">
+              <button class="info-btn" data-action="info" data-id="${id}" title="Modul-Erklärung">i</button>
+              <div>
+                <strong>${MODULE_DEFS[id].title}</strong>
+                <span class="chip">${MODULE_DEFS[id].group}</span>
+              </div>
             </div>
             <div class="module-actions">
               <select class="chart-select" data-action="color" data-id="${id}" title="Modul-Farbe">
@@ -1354,6 +1415,12 @@
       board.querySelectorAll("[data-action='chart-open']").forEach((btn) => {
         btn.addEventListener("click", () => openChartOverlay(btn.dataset.id));
       });
+      board.querySelectorAll("[data-action='info']").forEach((btn) => {
+        btn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          openInfoOverlay(btn.dataset.id);
+        });
+      });
     }
 
     function bringFront(id) {
@@ -1769,6 +1836,8 @@
       moduleModal.addEventListener("click", (e) => { if (e.target === moduleModal) closeAddModal(); });
       document.getElementById("overlayCloseBtn").addEventListener("click", closeChartOverlay);
       chartOverlay.addEventListener("click", (e) => { if (e.target === chartOverlay) closeChartOverlay(); });
+      document.getElementById("infoOverlayCloseBtn").addEventListener("click", closeInfoOverlay);
+      document.getElementById("infoOverlay").addEventListener("click", (e) => { if (e.target.id === "infoOverlay") closeInfoOverlay(); });
       document.getElementById("overlayRulerBtn").addEventListener("click", () => {
         state.overlay.ruler = !state.overlay.ruler;
         state.overlay.rulerStart = null;
