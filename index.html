@@ -59,6 +59,7 @@
       border-color: #304173;
       color: #d2dbff;
     }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
     button.danger-big {
       background: linear-gradient(180deg, #ff5b6e, #d94358);
       border-color: #ff8390;
@@ -69,6 +70,17 @@
       min-width: 176px;
       letter-spacing: 0.2px;
       box-shadow: 0 6px 20px rgba(255, 91, 110, 0.35);
+    }
+    button.success-big {
+      background: linear-gradient(180deg, #28c76f, #1e9e54);
+      border-color: #3dd87d;
+      color: #fff;
+      font-size: 14px;
+      font-weight: 800;
+      padding: 11px 18px;
+      min-width: 176px;
+      letter-spacing: 0.2px;
+      box-shadow: 0 6px 20px rgba(40, 199, 111, 0.35);
     }
     .error { color: #ff9bad; min-height: 18px; font-size: 13px; margin-top: 6px; }
     .app { padding: 14px; display: grid; gap: 14px; }
@@ -425,6 +437,7 @@
         <button id="undoLayoutBtn" class="secondary" title="Letzte Aktion rückgängig">← Zurück</button>
         <button id="addModuleBtn" class="secondary">+ Modul hinzufügen</button>
         <button id="resetLayoutBtn" class="secondary">Layout zurücksetzen</button>
+        <button id="openPositionBtn" class="success-big">Position eröffnen</button>
         <button id="closePositionBtn" class="danger-big">Position schließen</button>
         <button id="logoutBtn" class="secondary">Abmelden</button>
       </div>
@@ -481,6 +494,43 @@
       <div class="row">
         <button id="renameLayoutConfirmBtn">Umbenennen</button>
         <button id="renameLayoutCancelBtn" class="secondary">Abbrechen</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="openPositionModal" class="modal hidden">
+    <div class="card">
+      <h3>Position eröffnen</h3>
+      <div class="sub">Symbol, Richtung und Menge festlegen. Demo-Modus – keine echte Orderausführung.</div>
+      <div class="col">
+        <label for="openPosSymbolInput">Symbol</label>
+        <input id="openPosSymbolInput" placeholder="z. B. AAPL">
+      </div>
+      <div class="col">
+        <label for="openPosSideSelect">Richtung</label>
+        <select id="openPosSideSelect">
+          <option value="long">Long</option>
+          <option value="short">Short</option>
+        </select>
+      </div>
+      <div class="col">
+        <label for="openPosSizeInput">Menge (Stück)</label>
+        <input id="openPosSizeInput" type="number" min="1" placeholder="100" value="100">
+      </div>
+      <div class="col">
+        <label for="openPosOrderTypeSelect">Order-Typ</label>
+        <select id="openPosOrderTypeSelect">
+          <option value="market">Market (sofort)</option>
+          <option value="limit">Limit</option>
+        </select>
+      </div>
+      <div class="col" id="openPosLimitWrap">
+        <label for="openPosLimitInput">Limit-Preis (optional)</label>
+        <input id="openPosLimitInput" type="number" step="0.01" placeholder="z. B. 185.50">
+      </div>
+      <div class="row" style="margin-top: 12px;">
+        <button id="openPositionConfirmBtn" class="success-big">Position eröffnen</button>
+        <button id="openPositionCancelBtn" class="secondary">Abbrechen</button>
       </div>
     </div>
   </div>
@@ -801,6 +851,7 @@ Absolutdifferenz der gruppenspezifischen Scores; Sortierung nach Stärke. Paare:
       chartViewport: {},
       chartMode: {},
       alertBullThreshold: 70,
+      openPosition: null,
       overlay: {
         open: false,
         moduleId: null,
@@ -831,6 +882,7 @@ Absolutdifferenz der gruppenspezifischen Scores; Sortierung nach Stärke. Paare:
     const savedLayoutsSelect = document.getElementById("savedLayoutsSelect");
     const saveLayoutModal = document.getElementById("saveLayoutModal");
     const renameLayoutModal = document.getElementById("renameLayoutModal");
+    const openPositionModal = document.getElementById("openPositionModal");
 
     function seededRandom(seedText) {
       let h = 2166136261;
@@ -1129,7 +1181,10 @@ Absolutdifferenz der gruppenspezifischen Scores; Sortierung nach Stärke. Paare:
     }
 
     function syncBackdropState() {
-      const modalOpen = !moduleModal.classList.contains("hidden");
+      const modalOpen = !moduleModal.classList.contains("hidden") ||
+        !document.getElementById("saveLayoutModal").classList.contains("hidden") ||
+        !document.getElementById("renameLayoutModal").classList.contains("hidden") ||
+        !document.getElementById("openPositionModal").classList.contains("hidden");
       const overlayOpen = !chartOverlay.classList.contains("hidden");
       const infoOpen = !document.getElementById("infoOverlay").classList.contains("hidden");
       document.body.classList.toggle("backdrop-active", modalOpen || overlayOpen || infoOpen);
@@ -1960,6 +2015,76 @@ Absolutdifferenz der gruppenspezifischen Scores; Sortierung nach Stärke. Paare:
       setTimeout(() => alertBanner.classList.add("hidden"), 2000);
     }
 
+    function openOpenPositionModal() {
+      if (state.openPosition) {
+        alertBanner.classList.remove("hidden");
+        alertBanner.textContent = "Es besteht bereits eine offene Position für " + state.openPosition.symbol + ". Bitte zuerst schließen.";
+        setTimeout(() => alertBanner.classList.add("hidden"), 3000);
+        return;
+      }
+      document.getElementById("openPosSymbolInput").value = state.symbol;
+      document.getElementById("openPosSizeInput").value = "100";
+      document.getElementById("openPosSideSelect").value = "long";
+      document.getElementById("openPosOrderTypeSelect").value = "market";
+      document.getElementById("openPosLimitInput").value = "";
+      document.getElementById("openPosLimitWrap").style.display = "none";
+      openPositionModal.classList.remove("hidden");
+      syncBackdropState();
+    }
+
+    function closeOpenPositionModal() {
+      openPositionModal.classList.add("hidden");
+      syncBackdropState();
+    }
+
+    function openPositionConfirm() {
+      const symbol = (document.getElementById("openPosSymbolInput").value || state.symbol).toUpperCase().trim();
+      if (!symbol) return;
+      const side = document.getElementById("openPosSideSelect").value;
+      const size = parseInt(document.getElementById("openPosSizeInput").value, 10);
+      if (isNaN(size) || size < 1) {
+        alertBanner.classList.remove("hidden");
+        alertBanner.textContent = "Bitte eine gültige Menge (≥ 1) eingeben.";
+        setTimeout(() => alertBanner.classList.add("hidden"), 2500);
+        return;
+      }
+      const orderType = document.getElementById("openPosOrderTypeSelect").value;
+      const limitPrice = orderType === "limit" ? parseFloat(document.getElementById("openPosLimitInput").value) : null;
+      const rnd = seededRandom(symbol + "_" + Date.now());
+      const mockPrice = (80 + rnd() * 400).toFixed(2);
+      state.openPosition = {
+        symbol,
+        side,
+        size,
+        orderType,
+        limitPrice: limitPrice && !isNaN(limitPrice) ? limitPrice : null,
+        entryPrice: parseFloat(mockPrice),
+        openedAt: new Date().toISOString()
+      };
+      persistState();
+      closeOpenPositionModal();
+      updatePositionButtons();
+      alertBanner.classList.remove("hidden");
+      alertBanner.textContent = "Position eröffnet: " + side.toUpperCase() + " " + size + " " + symbol + " @ " + mockPrice + " (Demo).";
+      setTimeout(() => alertBanner.classList.add("hidden"), 3500);
+    }
+
+    function updatePositionButtons() {
+      const openBtn = document.getElementById("openPositionBtn");
+      const closeBtn = document.getElementById("closePositionBtn");
+      if (state.openPosition) {
+        openBtn.disabled = true;
+        openBtn.title = "Bereits eine Position offen für " + state.openPosition.symbol;
+        closeBtn.disabled = false;
+        closeBtn.title = "Position für " + state.openPosition.symbol + " schließen";
+      } else {
+        openBtn.disabled = false;
+        openBtn.title = "";
+        closeBtn.disabled = true;
+        closeBtn.title = "Keine offene Position";
+      }
+    }
+
     function persistState() {
       localStorage.setItem(STORAGE_KEY, JSON.stringify({
         symbol: state.symbol,
@@ -1973,7 +2098,8 @@ Absolutdifferenz der gruppenspezifischen Scores; Sortierung nach Stärke. Paare:
         chartViewport: state.chartViewport,
         chartMode: state.chartMode,
         alertBullThreshold: state.alertBullThreshold,
-        zCounter: state.zCounter
+        zCounter: state.zCounter,
+        openPosition: state.openPosition
       }));
     }
 
@@ -1994,6 +2120,7 @@ Absolutdifferenz der gruppenspezifischen Scores; Sortierung nach Stärke. Paare:
         if (p.chartMode && typeof p.chartMode === "object") state.chartMode = p.chartMode;
         if (typeof p.alertBullThreshold === "number") state.alertBullThreshold = p.alertBullThreshold;
         if (typeof p.zCounter === "number") state.zCounter = p.zCounter;
+        if (p.openPosition && typeof p.openPosition === "object") state.openPosition = p.openPosition;
       } catch (_) {}
     }
 
@@ -2004,6 +2131,7 @@ Absolutdifferenz der gruppenspezifischen Scores; Sortierung nach Stärke. Paare:
       if (flag) {
         refreshSavedLayoutsDropdown();
         refreshScore();
+        updatePositionButtons();
       }
     }
 
@@ -2034,15 +2162,28 @@ Absolutdifferenz der gruppenspezifischen Scores; Sortierung nach Stärke. Paare:
       document.getElementById("renameLayoutCancelBtn").addEventListener("click", closeRenameLayoutModal);
       saveLayoutModal.addEventListener("click", (e) => { if (e.target === saveLayoutModal) closeSaveLayoutModal(); });
       renameLayoutModal.addEventListener("click", (e) => { if (e.target === renameLayoutModal) closeRenameLayoutModal(); });
+      openPositionModal.addEventListener("click", (e) => { if (e.target === openPositionModal) closeOpenPositionModal(); });
+      document.getElementById("openPositionBtn").addEventListener("click", openOpenPositionModal);
+      document.getElementById("openPositionCancelBtn").addEventListener("click", closeOpenPositionModal);
+      document.getElementById("openPositionConfirmBtn").addEventListener("click", openPositionConfirm);
+      document.getElementById("openPosOrderTypeSelect").addEventListener("change", () => {
+        const wrap = document.getElementById("openPosLimitWrap");
+        wrap.style.display = document.getElementById("openPosOrderTypeSelect").value === "limit" ? "block" : "none";
+      });
       document.getElementById("addModuleBtn").addEventListener("click", openAddModal);
       document.getElementById("closeModalBtn").addEventListener("click", closeAddModal);
       document.getElementById("autoSizeBtn").addEventListener("click", intelligentResizeAll);
       document.getElementById("resetLayoutBtn").addEventListener("click", resetLayout);
       document.getElementById("closePositionBtn").addEventListener("click", () => {
-        const ok = window.confirm("Position für " + state.symbol + " wirklich schließen?");
+        if (!state.openPosition) return;
+        const sym = state.openPosition.symbol;
+        const ok = window.confirm("Position für " + sym + " (" + state.openPosition.side.toUpperCase() + " " + state.openPosition.size + ") wirklich schließen?");
         if (!ok) return;
+        state.openPosition = null;
+        persistState();
+        updatePositionButtons();
         alertBanner.classList.remove("hidden");
-        alertBanner.textContent = "Position für " + state.symbol + " wurde geschlossen (Demo-Aktion).";
+        alertBanner.textContent = "Position für " + sym + " wurde geschlossen (Demo-Aktion).";
       });
       document.querySelectorAll("[data-q-ticker]").forEach((btn) => {
         btn.addEventListener("click", () => {
@@ -2145,6 +2286,7 @@ Absolutdifferenz der gruppenspezifischen Scores; Sortierung nach Stärke. Paare:
         if (!state.chartMode[id]) state.chartMode[id] = "candles";
       });
       installEvents();
+      updatePositionButtons();
       const auth = localStorage.getItem("quant_pinwand_auth") === "1";
       setLoggedIn(auth);
     }
