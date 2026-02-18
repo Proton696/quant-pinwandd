@@ -391,7 +391,11 @@
       </div>
       <div class="right">
         <button id="saveLayoutBtn" class="secondary">Layout sichern</button>
-        <button id="undoLayoutBtn" class="secondary" title="Letzte Position wiederherstellen">← Zurück</button>
+        <select id="savedLayoutsSelect" class="chart-select" title="Gesichertes Layout laden" style="min-width: 140px;">
+          <option value="">– Layout laden –</option>
+        </select>
+        <button id="renameLayoutBtn" class="secondary">Umbenennen</button>
+        <button id="undoLayoutBtn" class="secondary" title="Letzte Aktion rückgängig">← Zurück</button>
         <button id="addModuleBtn" class="secondary">+ Modul hinzufügen</button>
         <button id="resetLayoutBtn" class="secondary">Layout zurücksetzen</button>
         <button id="closePositionBtn" class="danger-big">Position schließen</button>
@@ -421,6 +425,38 @@
       <section id="board" class="board"></section>
     </section>
   </main>
+
+  <div id="saveLayoutModal" class="modal hidden">
+    <div class="card">
+      <h3>Layout sichern</h3>
+      <div class="sub">Max. 5 Layouts. Name eingeben oder bestehendes überschreiben.</div>
+      <div class="col">
+        <label for="layoutNameInput">Name</label>
+        <input id="layoutNameInput" placeholder="z. B. Intraday">
+      </div>
+      <select id="saveLayoutOverwriteSelect" class="chart-select" style="margin-bottom: 10px;">
+        <option value="">– Neues Layout –</option>
+      </select>
+      <div class="row">
+        <button id="saveLayoutConfirmBtn">Speichern</button>
+        <button id="saveLayoutCancelBtn" class="secondary">Abbrechen</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="renameLayoutModal" class="modal hidden">
+    <div class="card">
+      <h3>Layout umbenennen</h3>
+      <div class="col">
+        <label for="renameLayoutInput">Neuer Name</label>
+        <input id="renameLayoutInput" placeholder="Neuer Name">
+      </div>
+      <div class="row">
+        <button id="renameLayoutConfirmBtn">Umbenennen</button>
+        <button id="renameLayoutCancelBtn" class="secondary">Abbrechen</button>
+      </div>
+    </div>
+  </div>
 
   <div id="moduleModal" class="modal hidden">
     <div class="card">
@@ -465,7 +501,7 @@
   <script>
     const AUTH_USER = "demo";
     const AUTH_PASS = "demo123";
-    const STORAGE_KEY = "quant_pinwand_state_v2";
+    const STORAGE_KEY = "quant_pinwand_state_v3";
     const GRID = 10;
     const MIN_W = 280;
     const MIN_H = 220;
@@ -507,12 +543,16 @@
       { name: "Cyan", value: "#0a2428" }
     ];
 
+    const MAX_SAVED_LAYOUTS = 5;
+    const MAX_UNDO_STEPS = 40;
+
     const state = {
       symbol: "AAPL",
       timeframe: "24hours",
       activeModules: [...DEFAULT_ACTIVE],
       layouts: {},
-      layoutHistory: [],
+      actionHistory: [],
+      savedLayouts: [],
       moduleTf: {},
       moduleColor: {},
       chartViewport: {},
@@ -545,6 +585,9 @@
     const overlaySub = document.getElementById("overlaySub");
     const overlayTfSelect = document.getElementById("overlayTfSelect");
     const overlayModeSelect = document.getElementById("overlayModeSelect");
+    const savedLayoutsSelect = document.getElementById("savedLayoutsSelect");
+    const saveLayoutModal = document.getElementById("saveLayoutModal");
+    const renameLayoutModal = document.getElementById("renameLayoutModal");
 
     function seededRandom(seedText) {
       let h = 2166136261;
@@ -1234,6 +1277,7 @@
       board.querySelectorAll("[data-action='toggle']").forEach((btn) => {
         btn.addEventListener("click", () => {
           const id = btn.dataset.id;
+          pushUndoState();
           state.activeModules = state.activeModules.filter((x) => x !== id);
           persistState();
           renderBoard();
@@ -1242,6 +1286,7 @@
       board.querySelectorAll("[data-action='lock']").forEach((btn) => {
         btn.addEventListener("click", () => {
           const id = btn.dataset.id;
+          pushUndoState();
           state.layouts[id].locked = !state.layouts[id].locked;
           persistState();
           renderBoard();
@@ -1260,6 +1305,7 @@
       board.querySelectorAll("[data-action='overlap']").forEach((btn) => {
         btn.addEventListener("click", () => {
           const id = btn.dataset.id;
+          pushUndoState();
           state.layouts[id].allowOverlap = !state.layouts[id].allowOverlap;
           if (!state.layouts[id].allowOverlap) {
             resolveCollisionsFrom(id);
@@ -1272,6 +1318,7 @@
         btn.addEventListener("click", () => {
           const id = btn.dataset.id;
           const size = btn.dataset.size;
+          pushUndoState();
           const l = state.layouts[id];
           if (size === "sm") { l.w = 320; l.h = Math.max(250, MODULE_DEFS[id].baseH - 30); }
           if (size === "md") { l.w = 390; l.h = Math.max(280, MODULE_DEFS[id].baseH); }
@@ -1329,6 +1376,7 @@
         handle.addEventListener("pointerdown", (e) => {
           if (layout.locked || e.target.closest("button") || e.target.closest("select")) return;
           e.preventDefault();
+          pushUndoState();
           bringFront(id);
           const startLayoutsSnapshot = cloneLayouts();
           const resetZone = resetZoneRect(layout.x, layout.y, layout.w, layout.h);
@@ -1357,6 +1405,7 @@
             removeDragResetZone();
             if (shouldReset) {
               state.layouts = startLayoutsSnapshot;
+              state.actionHistory.pop();
               renderBoard();
               persistState();
               return;
@@ -1374,6 +1423,7 @@
         resizeHandle.addEventListener("pointerdown", (e) => {
           if (layout.locked) return;
           e.preventDefault();
+          pushUndoState();
           const startX = e.clientX;
           const startY = e.clientY;
           const startW = layout.w;
@@ -1452,6 +1502,7 @@
         btn.addEventListener("click", () => {
           const id = btn.dataset.moduleId;
           if (!state.activeModules.includes(id)) {
+            pushUndoState();
             state.activeModules.push(id);
             ensureLayout(id);
             state.moduleTf[id] = state.timeframe;
@@ -1466,6 +1517,7 @@
       moduleTableBody.querySelectorAll("[data-toggle='off']").forEach((btn) => {
         btn.addEventListener("click", () => {
           const id = btn.dataset.moduleId;
+          pushUndoState();
           state.activeModules = state.activeModules.filter((x) => x !== id);
           persistState();
           renderBoard();
@@ -1489,34 +1541,131 @@
       renderBoard();
     }
 
-    function saveLayout() {
-      const snapshot = {
+    function cloneLayoutState() {
+      return {
         layouts: JSON.parse(JSON.stringify(state.layouts)),
-        activeModules: [...state.activeModules]
+        activeModules: [...state.activeModules],
+        moduleTf: { ...state.moduleTf },
+        moduleColor: { ...state.moduleColor },
+        chartViewport: { ...state.chartViewport },
+        chartMode: { ...state.chartMode }
       };
-      state.layoutHistory.push(snapshot);
-      if (state.layoutHistory.length > 20) state.layoutHistory.shift();
-      persistState();
-      alertBanner.classList.remove("hidden");
-      alertBanner.textContent = "Layout gesichert. Du kannst mit „← Zurück“ die vorherige Position wiederherstellen.";
-      setTimeout(() => alertBanner.classList.add("hidden"), 3000);
     }
 
-    function restoreLayout() {
-      if (state.layoutHistory.length === 0) {
+    function applyLayoutState(snap) {
+      state.layouts = JSON.parse(JSON.stringify(snap.layouts));
+      state.activeModules = [...snap.activeModules];
+      if (snap.moduleTf) Object.assign(state.moduleTf, snap.moduleTf);
+      if (snap.moduleColor) Object.assign(state.moduleColor, snap.moduleColor);
+      if (snap.chartViewport) Object.assign(state.chartViewport, snap.chartViewport);
+      if (snap.chartMode) Object.assign(state.chartMode, snap.chartMode);
+    }
+
+    function pushUndoState() {
+      state.actionHistory.push(cloneLayoutState());
+      if (state.actionHistory.length > MAX_UNDO_STEPS) state.actionHistory.shift();
+    }
+
+    function undoLastAction() {
+      if (state.actionHistory.length === 0) {
         alertBanner.classList.remove("hidden");
-        alertBanner.textContent = "Kein gesichertes Layout vorhanden. Klicke zuerst auf „Layout sichern“.";
-        setTimeout(() => alertBanner.classList.add("hidden"), 2500);
+        alertBanner.textContent = "Keine Aktion zum Rückgängigmachen.";
+        setTimeout(() => alertBanner.classList.add("hidden"), 2000);
         return;
       }
-      const snapshot = state.layoutHistory.pop();
-      state.layouts = JSON.parse(JSON.stringify(snapshot.layouts));
-      state.activeModules = [...snapshot.activeModules];
+      const snap = state.actionHistory.pop();
+      applyLayoutState(snap);
       persistState();
       renderBoard();
       updateBoardHeight();
       alertBanner.classList.remove("hidden");
-      alertBanner.textContent = "Vorherige Position wiederhergestellt.";
+      alertBanner.textContent = "Letzte Aktion rückgängig gemacht.";
+      setTimeout(() => alertBanner.classList.add("hidden"), 2000);
+    }
+
+    function refreshSavedLayoutsDropdown() {
+      savedLayoutsSelect.innerHTML = '<option value="">– Layout laden –</option>' +
+        state.savedLayouts.map((l, i) => `<option value="${i}">${l.name}</option>`).join("");
+    }
+
+    function openSaveLayoutModal() {
+      document.getElementById("layoutNameInput").value = "";
+      const sel = document.getElementById("saveLayoutOverwriteSelect");
+      sel.innerHTML = '<option value="">– Neues Layout –</option>' +
+        state.savedLayouts.map((l, i) => `<option value="${i}">Überschreiben: ${l.name}</option>`).join("");
+      saveLayoutModal.classList.remove("hidden");
+      syncBackdropState();
+    }
+
+    function closeSaveLayoutModal() {
+      saveLayoutModal.classList.add("hidden");
+      syncBackdropState();
+    }
+
+    function saveLayoutConfirm() {
+      const name = document.getElementById("layoutNameInput").value.trim() || "Layout " + (state.savedLayouts.length + 1);
+      const overwriteIdx = document.getElementById("saveLayoutOverwriteSelect").value;
+      const entry = { name, ...cloneLayoutState() };
+      if (overwriteIdx !== "") {
+        const i = parseInt(overwriteIdx, 10);
+        state.savedLayouts[i] = entry;
+      } else {
+        state.savedLayouts.push(entry);
+        if (state.savedLayouts.length > MAX_SAVED_LAYOUTS) state.savedLayouts.shift();
+      }
+      refreshSavedLayoutsDropdown();
+      persistState();
+      closeSaveLayoutModal();
+      alertBanner.classList.remove("hidden");
+      alertBanner.textContent = "Layout \"" + name + "\" gesichert.";
+      setTimeout(() => alertBanner.classList.add("hidden"), 2500);
+    }
+
+    function loadSavedLayout(idx) {
+      const i = parseInt(idx, 10);
+      if (isNaN(i) || i < 0 || i >= state.savedLayouts.length) return;
+      pushUndoState();
+      applyLayoutState(state.savedLayouts[i]);
+      persistState();
+      renderBoard();
+      updateBoardHeight();
+      savedLayoutsSelect.value = "";
+      alertBanner.classList.remove("hidden");
+      alertBanner.textContent = "Layout \"" + state.savedLayouts[i].name + "\" geladen.";
+      setTimeout(() => alertBanner.classList.add("hidden"), 2000);
+    }
+
+    function openRenameLayoutModal() {
+      const idx = savedLayoutsSelect.value;
+      if (!idx || idx === "") {
+        alertBanner.classList.remove("hidden");
+        alertBanner.textContent = "Zuerst ein Layout im Dropdown auswählen.";
+        setTimeout(() => alertBanner.classList.add("hidden"), 2000);
+        return;
+      }
+      state._renameLayoutIdx = parseInt(idx, 10);
+      document.getElementById("renameLayoutInput").value = state.savedLayouts[state._renameLayoutIdx].name;
+      renameLayoutModal.classList.remove("hidden");
+      syncBackdropState();
+    }
+
+    function closeRenameLayoutModal() {
+      renameLayoutModal.classList.add("hidden");
+      syncBackdropState();
+    }
+
+    function renameLayoutConfirm() {
+      const newName = document.getElementById("renameLayoutInput").value.trim();
+      if (!newName) return;
+      const i = state._renameLayoutIdx;
+      if (i >= 0 && i < state.savedLayouts.length) {
+        state.savedLayouts[i].name = newName;
+        refreshSavedLayoutsDropdown();
+        persistState();
+      }
+      closeRenameLayoutModal();
+      alertBanner.classList.remove("hidden");
+      alertBanner.textContent = "Layout umbenannt.";
       setTimeout(() => alertBanner.classList.add("hidden"), 2000);
     }
 
@@ -1526,7 +1675,8 @@
         timeframe: state.timeframe,
         activeModules: state.activeModules,
         layouts: state.layouts,
-        layoutHistory: state.layoutHistory.slice(-10),
+        actionHistory: state.actionHistory.slice(-MAX_UNDO_STEPS),
+        savedLayouts: state.savedLayouts,
         moduleTf: state.moduleTf,
         moduleColor: state.moduleColor,
         chartViewport: state.chartViewport,
@@ -1545,7 +1695,8 @@
         if (p.timeframe) state.timeframe = p.timeframe;
         if (Array.isArray(p.activeModules)) state.activeModules = p.activeModules;
         if (p.layouts && typeof p.layouts === "object") state.layouts = p.layouts;
-        if (Array.isArray(p.layoutHistory)) state.layoutHistory = p.layoutHistory;
+        if (Array.isArray(p.actionHistory)) state.actionHistory = p.actionHistory;
+        if (Array.isArray(p.savedLayouts)) state.savedLayouts = p.savedLayouts.slice(0, MAX_SAVED_LAYOUTS);
         if (p.moduleTf && typeof p.moduleTf === "object") state.moduleTf = p.moduleTf;
         if (p.moduleColor && typeof p.moduleColor === "object") state.moduleColor = p.moduleColor;
         if (p.chartViewport && typeof p.chartViewport === "object") state.chartViewport = p.chartViewport;
@@ -1559,7 +1710,10 @@
       localStorage.setItem("quant_pinwand_auth", flag ? "1" : "0");
       loginView.classList.toggle("hidden", flag);
       appView.classList.toggle("hidden", !flag);
-      if (flag) refreshScore();
+      if (flag) {
+        refreshSavedLayoutsDropdown();
+        refreshScore();
+      }
     }
 
     function installEvents() {
@@ -1576,8 +1730,19 @@
       document.getElementById("logoutBtn").addEventListener("click", () => setLoggedIn(false));
       document.getElementById("refreshBtn").addEventListener("click", refreshScore);
       timeframeSelect.addEventListener("change", refreshScore);
-      document.getElementById("saveLayoutBtn").addEventListener("click", saveLayout);
-      document.getElementById("undoLayoutBtn").addEventListener("click", restoreLayout);
+      document.getElementById("saveLayoutBtn").addEventListener("click", openSaveLayoutModal);
+      document.getElementById("undoLayoutBtn").addEventListener("click", undoLastAction);
+      savedLayoutsSelect.addEventListener("change", () => {
+        const v = savedLayoutsSelect.value;
+        if (v) loadSavedLayout(v);
+      });
+      document.getElementById("renameLayoutBtn").addEventListener("click", openRenameLayoutModal);
+      document.getElementById("saveLayoutConfirmBtn").addEventListener("click", saveLayoutConfirm);
+      document.getElementById("saveLayoutCancelBtn").addEventListener("click", closeSaveLayoutModal);
+      document.getElementById("renameLayoutConfirmBtn").addEventListener("click", renameLayoutConfirm);
+      document.getElementById("renameLayoutCancelBtn").addEventListener("click", closeRenameLayoutModal);
+      saveLayoutModal.addEventListener("click", (e) => { if (e.target === saveLayoutModal) closeSaveLayoutModal(); });
+      renameLayoutModal.addEventListener("click", (e) => { if (e.target === renameLayoutModal) closeRenameLayoutModal(); });
       document.getElementById("addModuleBtn").addEventListener("click", openAddModal);
       document.getElementById("closeModalBtn").addEventListener("click", closeAddModal);
       document.getElementById("autoSizeBtn").addEventListener("click", intelligentResizeAll);
