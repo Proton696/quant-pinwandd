@@ -181,6 +181,17 @@
       flex-shrink: 0;
     }
     .info-btn:hover { background: rgba(90, 109, 168, 0.6); color: #fff; }
+    .info-content {
+      line-height: 1.65;
+      margin-top: 12px;
+      white-space: pre-wrap;
+      font-size: 13px;
+      color: #c5d0ed;
+      max-height: 60vh;
+      overflow-y: auto;
+    }
+    .info-content .info-section { margin-bottom: 14px; }
+    .info-content .info-head { font-weight: 700; color: #9fb5f0; margin-bottom: 4px; font-size: 12px; letter-spacing: 0.5px; }
     .icon-btn {
       border: 1px solid #394a80;
       background: #171d35;
@@ -500,7 +511,7 @@
         <strong id="infoOverlayTitle">Modul-Info</strong>
         <button id="infoOverlayCloseBtn" class="secondary">Schließen</button>
       </div>
-      <div id="infoOverlayContent" class="sub" style="line-height: 1.6; margin-top: 12px; white-space: pre-wrap;"></div>
+      <div id="infoOverlayContent" class="info-content"></div>
     </div>
   </div>
 
@@ -558,125 +569,209 @@
     };
 
     const MODULE_INFO = {
-      "market-overview": `BEWERTUNG: Composite Score (-100 bis +100) und P(Bullish) fassen alle Faktoren zusammen.
+      "market-overview": `BESCHREIBUNG
+Der Composite Score aggregiert alle Faktorgruppen zu einer einzigen Marktstimmungs-Einschätzung.
 
-EINFLUSS: Der Score steuert direkt die Gesamteinschätzung. Je höher, desto mehr Bullish-Signale aus allen Modulen.
+BEWERTUNG
+• Score > +20: Bullische Tendenz; P(Bullish) steigt deutlich.
+• Score -20 bis +20: Neutral; keine klare Richtung.
+• Score < -20: Bärische Tendenz; erhöhtes Abwärtsrisiko.
 
-HOHE WERTE (z. B. Score > 50, P > 70%): Bullische Marktstimmung. Mehrere Faktoren stützen Aufwärtsbewegung. Vorsicht bei Überhitzung.
+EINFLUSS
+Der Score fließt direkt in die Wahrscheinlichkeit P(Bullish) ein. Formel: P = 1 / (1 + e^(-β·CS)); β ≈ 1,3. Je extremer der Score, desto sicherer die Richtungseinschätzung.
 
-TIEFE WERTE (z. B. Score < -50, P < 30%): Bärische Stimmung. Abwärtsdruck oder Vorsicht. Kann Gelegenheit für Gegenbewegung sein.`,
+BERECHNUNG
+Gewichtete Summe der Gruppen-Scores (Technik 25%, Options 25%, Flow 15%, Fundamental 10%, Makro 10%, Sentiment 10%, Event 5%), normalisiert via tanh auf [-100, +100].`,
 
-      "top-drivers": `BEWERTUNG: Die drei Faktoren mit dem stärksten Einfluss auf den Composite Score (in Basis-Punkten).
+      "top-drivers": `BESCHREIBUNG
+Die drei Faktoren mit dem stärksten Beitrag zum Composite Score.
 
-EINFLUSS: Zeigt konkret, welche Bereiche den Score aktuell treiben. Positive = bullischer Druck, negative = bärischer Druck.
+BEWERTUNG
+• Positive bp: Treiber stützt bullische Sicht; stärkerer Einfluss bei höherem Absolutwert.
+• Negative bp: Treiber stützt bärische Sicht.
+• Werte nahe 0: Geringer Einfluss auf die Gesamteinschätzung.
 
-HOHE POSITIVE WERTE: Starker bullischer Treiber. Dominanter Faktor für Aufwärtstendenz.
+EINFLUSS
+Jeder Treiber zeigt seinen Beitrag in Basis-Punkten (bp). Die Rangfolge hilft, die Hauptursache der aktuellen Stimmung zu identifizieren – z. B. ob Options-Positionierung oder Flow die Richtung dominiert.
 
-HOHE NEGATIVE WERTE: Starker bärischer Treiber. Dominanter Faktor für Abwärtstendenz.
+BERECHNUNG
+Contribution = Gruppen-Gewicht × Faktor-Gewicht × Faktor-Signal. Sortierung nach |Contribution|; Anzeige der Top 3.`,
 
-TIEFE WERTE (nahe 0): Geringer Einfluss auf den Gesamtscore.`,
+      "technical": `BESCHREIBUNG
+Technische Struktur: Momentum, Trend und Chart-Signale.
 
-      "technical": `BEWERTUNG: Technik-Score (Z-Score), adaptives Gewicht und Momentum-Richtung.
+BEWERTUNG
+• Hoher positiver Score: Starkes Aufwärts-Momentum; Up-Drift.
+• Hoher negativer Score: Abwärts-Momentum; Down-Drift.
+• Score nahe 0: Seitwärtsphase, keine klare technische Richtung.
 
-EINFLUSS: Bestimmt ca. 25% des Composite Score. Steuert Trend- und Momentum-Einschätzung.
+EINFLUSS
+Gewichtung ca. 25% im Composite Score. Bestimmt maßgeblich die Trend-Einschätzung und interagiert mit Options-Gamma (Mean Reversion vs. Trendverstärkung).
 
-HOHE WERTE (z. B. > 0,5 Up-Drift): Starkes Aufwärtsmomentum. Trend bestätigt. Technisch bullisch.
+BERECHNUNG
+Rolling Z-Score der technischen Indikatoren (Momentum, Volatilität, Autokorrelation) über das gewählte Timeframe; adaptiv gewichtet nach Rolling Information Coefficient.`,
 
-TIEFE WERTE (z. B. < -0,5 Down-Drift): Abwärtsmomentum. Technisch bärisch. Mögliche Überverkäufe prüfen.`,
+      "options": `BESCHREIBUNG
+Options- und Dealer-Positionierung: GEX, Max Pain, Put/Call, Skew, IV Rank, 0DTE.
 
-      "options": `BEWERTUNG: Gamma Exposure (GEX), Max Pain, Put/Call-Ratio, Skew, IV Rank, 0DTE-Anteil.
+BEWERTUNG
+• GEX positiv: Dealer long Gamma → tendenziell mean-reverting; Rallyes werden gedämpft.
+• GEX negativ: Dealer short Gamma → Trendverstärkung; Bewegungen können überproportional ausfallen.
+• Hohe Put/Call-Ratio: Überwiegend Put-Aktivität; oft bärisch oder Hedging.
+• Hoher IV Rank: Volatilität relativ hoch; Vorsicht bei Short-Volatility-Strategien.
 
-EINFLUSS: Ca. 25% des Composite Score. Dealer-Positionierung beeinflusst Kurzfristschwankungen.
+EINFLUSS
+Ca. 25% Gewicht im Composite. GEX und Skew sind zentral für die Einschätzung, ob der Markt eher mean-reverting oder trend-following agiert.
 
-GEX positiv: Dealer long Gamma → Tendenz zu Mean Reversion, kleinere Moves.
-GEX negativ: Dealer short Gamma → Trendverstärkung, größere Moves möglich.
-Put/Call hoch: Mehr Hedging/Puts → oft bärisch oder defensiv.
-IV Rank hoch: Hohe implizite Volatilität → größere erwartete Schwankungen.
-Max Pain: Preisbereich, in dem viele Optionen wertlos verfallen.`,
+BERECHNUNG
+GEX aus Open Interest und Delta; Max Pain aus Strike mit maximalem Verlust für Optionsschreiber; Put/Call aus Volumen; Skew aus impliziter Volatilität über Strikes.`,
 
-      "darkpool": `BEWERTUNG: Dark-Pool-Ratio, Level High/Low, Venue-Shift.
+      "darkpool": `BESCHREIBUNG
+Dark-Pool-Aktivität: Anteil außerhalb regulärer Börsen, Preislevel, Venue-Shift.
 
-EINFLUSS: Zeigt institutionelle Aktivität außerhalb der regulären Börse. Hohe Ratio = viel institutioneller Handel.
+BEWERTUNG
+• Hohe Dark-Pool-Ratio: Starker institutioneller Handel; oft weniger sichtbarer Druck auf den Kurs.
+• Venue Shift „Risk-On“: Institutionen handeln eher aggressiv long.
+• Venue Shift „Risk-Off“: Defensiveres Verhalten, mehr Hedging.
+• Level High/Low: Typische Preisbereiche für Dark-Pool-Aktivität; können als Unterstützung/Widerstand dienen.
 
-HOHE RATIO (> 40%): Starker institutioneller Handel. Oft Vorlaufindikator für größere Moves. Venue-Shift „Risk-On“ deutet auf Käuferaktivität hin.
+EINFLUSS
+Teil der Flow-Gruppe (ca. 15% Gesamtgewicht). Hohe Dark-Pool-Aktivität kann bedeuten, dass große Orders den sichtbaren Markt weniger belasten – oder umgekehrt gezieltes „Hiding“ von Verkäufen.
 
-TIEFE RATIO (< 30%): Weniger institutioneller Handel. Mehr Retail. Venue-Shift „Risk-Off“ deutet auf defensivere Stimmung hin.`,
+BERECHNUNG
+Anteil des Handelsvolumens in Dark Pools; aggregierte Preislevel; Verschiebung der Venue-Allokation über Zeit.`,
 
-      "borrow": `BEWERTUNG: Borrow Fee, Utilization, Short Interest, Days to Cover.
+      "borrow": `BESCHREIBUNG
+Borrow Fees, Ausleihquote (Utilization) und Short Interest.
 
-EINFLUSS: Hohe Borrow Fees und Utilization bedeuten starke Short-Nachfrage oder Knappheit. Kann Squeeze oder Gegenbewegung begünstigen.
+BEWERTUNG
+• Hohe Borrow Fee: Starke Short-Nachfrage oder Knappheit; kann Squeeze-Risiko anzeigen.
+• Hohe Utilization: Großer Teil der handelbaren Aktien ist ausgeliehen; wenig Spielraum für weitere Shorts.
+• Hohe Short Interest: Viele Leerverkäufer; bei positiven News erhöhtes Squeeze-Potenzial.
+• Days to Cover hoch: Längere Zeit nötig, um Shorts zu decken; Squeeze-Risiko steigt.
 
-HOHE BORROW FEE (> 10%): Sehr teure Leerverkäufe. Hohe Short-Nachfrage oder Knappheit. Squeeze-Risiko für Shorts.
+EINFLUSS
+Teil der Flow-Gruppe. Extreme Werte können auf überzogene Short-Positionierung hindeuten – bei positiven Katalysatoren erhöhtes Risiko eines Short Squeeze.
 
-TIEFE BORROW FEE (< 1%): Leichte Leerverkäufe. Wenig Short-Squeeze-Risiko.
-Hohe Short Interest: Viele Shorts. Potenzial für Squeeze bei Aufwärtsbewegung.`,
+BERECHNUNG
+Borrow Fee aus Leihgebühren; Utilization = ausgeliehene Aktien / verfügbare Aktien; Short Interest aus Meldungen; Days to Cover = Short Interest / durchschn. Tagesvolumen.`,
 
-      "flow": `BEWERTUNG: Spread (bps), Orderbuch-Tiefe, Order-Imbalance, ETF-Nettoflow.
+      "flow": `BESCHREIBUNG
+Orderbuch, Spread, Imbalance und ETF-Nettoflows.
 
-EINFLUSS: Liquidität und institutionelle Flows. Imbalance zeigt, ob Käufer oder Verkäufer dominieren.
+BEWERTUNG
+• Enger Spread: Gute Liquidität; geringere Handelskosten.
+• Weiter Spread: Schlechtere Liquidität; höheres Slippage-Risiko.
+• Order Imbalance positiv: Mehr Kauf- als Verkaufsdruck; tendenziell bullisch.
+• Order Imbalance negativ: Verkaufsdruck überwiegt.
+• ETF Flow positiv: Netto-Zuflüsse; institutionelle Käufer aktiv.
+• ETF Flow negativ: Abflüsse; Verkaufsdruck.
 
-SPREAD HOCH: Schlechtere Liquidität. Höhere Handelskosten. Vorsicht bei großen Orders.
-IMBALANCE POSITIV: Mehr Kaufaufträge. Bullischer Druck.
-IMBALANCE NEGATIV: Mehr Verkaufsaufträge. Bärischer Druck.
-ETF-NETTOFLOW: Positiv = Zuflüsse (bullisch), negativ = Abflüsse (bärisch).`,
+EINFLUSS
+Ca. 15% Gewicht. Flow-Daten zeigen, ob institutionelle Akteure netto kaufen oder verkaufen – oft Frühindikator für Kursbewegungen.
 
-      "fundamental": `BEWERTUNG: KGV, PEG, KBV, ROE, ROIC, FCF-Marge, Debt/Equity, Nettomarge.
+BERECHNUNG
+Spread in Basispunkten; Orderbuch-Tiefe aus Bid/Ask; Imbalance aus Order-Volumen; ETF Flow aus Creation/Redemption und Handelsdaten.`,
 
-EINFLUSS: Ca. 10% des Composite Score. Langfristige Bewertung und Qualität.
+      "fundamental": `BESCHREIBUNG
+Bewertungs- und Qualitätskennzahlen: KGV, PEG, KBV, ROE, ROIC, Margen, Verschuldung.
 
-KGV HOCH (> 25): Teuer bewertet. Wachstumserwartung prüfen.
-KGV TIEF (< 15): Günstiger bewertet. Kann Value oder Value Trap sein.
-PEG < 1: Günstig relativ zum Wachstum.
-ROE/ROIC HOCH: Effiziente Kapitalnutzung. Qualitätsunternehmen.
-ROE/ROIC TIEF: Schwach. Vorsicht.
-Debt/Equity HOCH: Hohe Verschuldung. Risiko bei Zinsanstieg.`,
+BEWERTUNG
+• KGV niedrig: Relativ günstig bewertet; KGV hoch: teuer.
+• PEG < 1: Wachstum relativ zum KGV günstig; PEG > 2: oft überbewertet.
+• ROE/ROIC hoch: Effiziente Kapitalnutzung; Qualitätsmerkmal.
+• Hohe Nettomarge: Starke Preisgestaltungsmacht.
+• Debt/Equity hoch: Höhere Finanzierungsrisiken.
 
-      "etf": `BEWERTUNG: AUM-Tendenz, Tracking-Stress, Liquiditäts-Proxy.
+EINFLUSS
+Ca. 10% Gewicht. Fundamentaldaten wirken eher mittel- bis langfristig; bei kurzen Timeframes oft weniger dominant als technische oder Options-Signale.
 
-EINFLUSS: ETF-Flows zeigen institutionelle und passive Nachfrage. Relevant für breite Indizes und große Titel.
+BERECHNUNG
+KGV = Kurs / Gewinn je Aktie; PEG = KGV / Gewinnwachstum; ROE = Nettogewinn / Eigenkapital; ROIC aus NOPAT und investiertem Kapital; Margen aus GuV.`,
 
-ZUFLÜSSE (steigend): Bullisch. Kaufdruck durch institutionelle Anleger.
-ABFLÜSSE (fallend): Bärisch. Verkaufsdruck.
-TRACKING-STRESS HOCH: ETF weicht vom Index ab. Liquiditäts- oder Replikationsprobleme.`,
+      "etf": `BESCHREIBUNG
+ETF-Flows, AUM-Tendenz und Tracking-Stress.
 
-      "macro": `BEWERTUNG: Makro-Score, Zins-/Inflationsdruck, adaptives Gewicht.
+BEWERTUNG
+• Positive AUM-Tendenz / Zuflüsse: Institutionelle Käufer; unterstützt Kurse.
+• Negative Tendenz / Abflüsse: Verkaufsdruck.
+• Hoher Tracking-Stress: ETF weicht stärker vom Index ab; Liquiditäts- oder Replikationsprobleme möglich.
 
-EINFLUSS: Ca. 10% des Composite Score. Reagiert auf Zentralbanken, Inflation, Arbeitsmarkt, BIP.
+EINFLUSS
+Teil der Flow-Gruppe. ETF-Flows gelten als Proxy für institutionelles Verhalten; große Zu- oder Abflüsse können Kursbewegungen vorwegnehmen oder verstärken.
 
-SCORE POSITIV: Makro-Umfeld entspannt. Zinsen niedrig oder sinkend. Wachstum stabil. Risiko-on.
-SCORE NEGATIV: Zins-/Inflationsdruck. Makro belastet. Risiko-off.`,
+BERECHNUNG
+Netto-Flows aus Creation/Redemption; AUM-Entwicklung; Tracking Difference und Tracking Error gegenüber dem Referenzindex.`,
 
-      "sentiment": `BEWERTUNG: Sentiment-Score, News-Bias, Social Breadth.
+      "macro": `BESCHREIBUNG
+Makroökonomische Faktoren: Zinsen, Inflation, Wachstum, Konjunktur.
 
-EINFLUSS: Ca. 10% des Composite Score. Stimmung in Medien und sozialen Netzwerken.
+BEWERTUNG
+• Positiver Makro-Score: Entspannte Zins-/Inflationslage; Wachstum stabil; tendenziell risikofreudiger.
+• Negativer Score: Zins- oder Inflationsdruck; Konjunktursorgen; eher risikoscheu.
 
-SCORE POSITIV: Überwiegend positive Berichterstattung. News-Bias positiv. Bullisch.
-SCORE NEGATIV: Negative Berichterstattung. News-Bias negativ. Bärisch.
-Social Breadth: Anteil positiver vs. negativer Erwähnungen. Extreme (> 80 oder < 20) können Konträrindikator sein.`,
+EINFLUSS
+Ca. 10% Gewicht. Makro-Daten beeinflussen vor allem die längerfristige Risikobereitschaft; bei Zinswenden oder Rezessionsängsten kann der Einfluss kurzfristig zunehmen.
 
-      "event": `BEWERTUNG: Event-Risk-Score, erwartete Lücke, nächstes Event.
+BERECHNUNG
+Surprise-Indizes zu Zinsentscheidungen, Inflation und BIP; gewichtet und in Z-Score transformiert.`,
 
-EINFLUSS: Ca. 5% des Composite Score. Erfasst Earnings, Guidance, regulatorische Ereignisse.
+      "sentiment": `BESCHREIBUNG
+News-Bias und Social-Media-Breadth.
 
-SCORE HOCH (positiv): Erhöhtes Event-Risiko. Größere erwartete Kurslücken. Vorsicht vor Volatilität.
-SCORE TIEF (negativ): Geringeres Event-Risiko. Ruhigere Phase.
-Nächstes Event: Earnings, Guidance etc. → erhöhte Volatilität möglich.`,
+BEWERTUNG
+• Positiver Sentiment-Score: Überwiegend positive Berichterstattung und Social-Media-Stimmung.
+• Negativer Score: Überwiegend negative Tonalität.
+• Social Breadth hoch: Breite positive Erwähnung; oft bestätigend für Trend.
+• Social Breadth niedrig: Geringe Aufmerksamkeit oder skeptische Stimmung.
 
-      "probabilities": `BEWERTUNG: Wahrscheinlichkeiten für Trendfortsetzung, Mean Reversion, Volatilitätsausweitung, Distribution.
+EINFLUSS
+Ca. 10% Gewicht. Sentiment kann als Konträr-Indikator wirken (zu viel Euphorie = Warnsignal) oder als Bestätigung (Stimmung und Kurs laufen parallel).
 
-EINFLUSS: Zeigt die erwartete Marktphase. Basiert auf HMM-Modellierung.
+BERECHNUNG
+NLP-basierte Sentiment-Analyse von News und Social Media; Aggregation zu einem Score; Z-Score-Normalisierung.`,
 
-TRENDFORTSETZUNG HOCH: Aktueller Trend wird wahrscheinlich fortgesetzt.
-MEAN REVERSION HOCH: Rückkehr zum Mittelwert wahrscheinlich. Gegenbewegung.
-VOLATILITÄTSAUSWEITUNG HOCH: Größere Schwankungen zu erwarten.
-DISTRIBUTION HOCH: Verteilung/Abnahme. Oft vor Korrekturen.`,
+      "event": `BESCHREIBUNG
+Event-Risiko: Earnings, Guidance, regulatorische oder sonstige Ereignisse.
 
-      "divergence": `BEWERTUNG: Stärke der Divergenz zwischen Faktorgruppen (z. B. Technik vs. Fundamental).
+BEWERTUNG
+• Hoher Event-Score: Erhöhtes Risiko von Kurslücken; Volatilität kann steigen.
+• Erwartete Lücke hoch: Größere potenzielle Bewegung bei Bekanntgabe.
+• „Nächstes Event“: Zeigt das relevanteste anstehende Ereignis.
 
-EINFLUSS: Divergenzen können Frühindikatoren für Wendepunkte sein. Technik steigt, Fundamental fällt → mögliche Überhitzung.
+EINFLUSS
+Ca. 5% Gewicht. Bei unmittelbar bevorstehenden Events (z. B. Earnings) kann das Risiko kurzfristig dominieren; der Score warnt vor erhöhter Volatilität und Gap-Risiko.
 
-STÄRKE HOCH: Große Abweichung zwischen Gruppen. Potenzieller Wendepunkt. Vorsicht.
-STÄRKE TIEF: Gruppen sind einig. Trend bestätigt.`
+BERECHNUNG
+Event-Kalender, historische Gap-Statistik, Options-implizite Volatilität vor Events; gewichtet nach Relevanz und Zeitabstand.`,
+
+      "probabilities": `BESCHREIBUNG
+Regime-Wahrscheinlichkeiten: Trendfortsetzung, Mean Reversion, Volatilitätsausweitung, Distribution.
+
+BEWERTUNG
+• Trendfortsetzung hoch: Aktueller Trend wird voraussichtlich fortgesetzt.
+• Mean Reversion hoch: Rückkehr zum Mittelwert wahrscheinlich; Gegenbewegung möglich.
+• Volatilitätsausweitung hoch: Größere Schwankungen zu erwarten.
+• Distribution hoch: Phase der Verteilung; oft vor Korrekturen.
+
+EINFLUSS
+Steuert die Interpretation anderer Signale: In einem Mean-Reversion-Regime sind Überstreckungen weniger trendbestätigend; in Vol-Expansion-Phasen sind Stops weiter zu setzen.
+
+BERECHNUNG
+Hidden-Markov-Modell (HMM) auf realisierter Volatilität, Return-Autokorrelation und Options-Term-Structure; Gamma-Regime aus Dealer-Positionierung.`,
+
+      "divergence": `BESCHREIBUNG
+Abweichungen zwischen Faktorgruppen (z. B. Technik vs. Fundamental, Options vs. Flow).
+
+BEWERTUNG
+• Starke Divergenz: Faktoren senden unterschiedliche Signale; erhöhte Unsicherheit oder möglicher Wendepunkt.
+• Schwache Divergenz: Faktoren sind weitgehend einheitlich; höhere Konfidenz in die Richtung.
+
+EINFLUSS
+Divergenzen können Frühindikatoren sein: Wenn z. B. Technik bullisch, Fundamental aber bärisch ist, kann das auf eine bevorstehende Korrektur oder Regimewechsel hindeuten.
+
+BERECHNUNG
+Absolutdifferenz der gruppenspezifischen Scores; Sortierung nach Stärke. Paare: Technik vs. Fundamental, Options vs. Flow, Sentiment vs. Makro.`
     };
 
     const DEFAULT_ACTIVE = ["market-overview", "top-drivers", "technical", "options", "darkpool", "borrow", "fundamental", "probabilities"];
@@ -1042,9 +1137,33 @@ STÄRKE TIEF: Gruppen sind einig. Trend bestätigt.`
 
     function openInfoOverlay(moduleId) {
       const title = MODULE_DEFS[moduleId] ? MODULE_DEFS[moduleId].title : "Modul";
-      const content = MODULE_INFO[moduleId] || "Keine Erklärung für dieses Modul hinterlegt.";
+      const raw = MODULE_INFO[moduleId] || "Keine Erklärung für dieses Modul hinterlegt.";
+      const lines = raw.split("\n");
+      let html = "";
+      let i = 0;
+      while (i < lines.length) {
+        const line = lines[i];
+        const trimmed = line.trim();
+        if (!trimmed) { i++; continue; }
+        const isHead = /^[A-ZÄÖÜ][A-ZÄÖÜ\s]+$/.test(trimmed) && trimmed.length < 35;
+        if (isHead && i + 1 < lines.length) {
+          const bodyLines = [];
+          i++;
+          while (i < lines.length) {
+            const next = lines[i].trim();
+            if (next && /^[A-ZÄÖÜ][A-ZÄÖÜ\s]+$/.test(next) && next.length < 35) break;
+            if (next) bodyLines.push(lines[i]);
+            i++;
+          }
+          html += `<div class="info-section"><div class="info-head">${trimmed}</div>${bodyLines.join("<br>")}</div>`;
+        } else {
+          html += `<div class="info-section">${trimmed.replace(/\n/g, "<br>")}</div>`;
+          i++;
+        }
+      }
+      if (!html) html = raw.replace(/\n/g, "<br>");
       document.getElementById("infoOverlayTitle").textContent = title;
-      document.getElementById("infoOverlayContent").textContent = content;
+      document.getElementById("infoOverlayContent").innerHTML = html;
       document.getElementById("infoOverlay").classList.remove("hidden");
       syncBackdropState();
     }
